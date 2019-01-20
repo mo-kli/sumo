@@ -50,6 +50,7 @@ bool MSAbstractLaneChangeModel::myAllowOvertakingRight(false);
 bool MSAbstractLaneChangeModel::myLCOutput(false);
 bool MSAbstractLaneChangeModel::myLCStartedOutput(false);
 bool MSAbstractLaneChangeModel::myLCEndedOutput(false);
+bool MSAbstractLaneChangeModel::mySmoothLC(false);
 const double MSAbstractLaneChangeModel::NO_NEIGHBOR(std::numeric_limits<double>::max());
 
 /* -------------------------------------------------------------------------
@@ -62,6 +63,8 @@ MSAbstractLaneChangeModel::initGlobalOptions(const OptionsCont& oc) {
     myLCOutput = oc.isSet("lanechange-output");
     myLCStartedOutput = oc.getBool("lanechange-output.started");
     myLCEndedOutput = oc.getBool("lanechange-output.ended");
+    mySmoothLC = oc.getBool("lanechange.smooth-change");
+    //mySmoothLC = true;
 }
 
 
@@ -203,12 +206,41 @@ MSAbstractLaneChangeModel::startLaneChangeManeuver(MSLane* source, MSLane* targe
         if (myLCOutput) {
             memorizeGapsAtLCInit();
         }
+        if (mySmoothLC)
+        {
+            initSmoothLC(STEPS2TIME(MSGlobals::gLaneChangeDuration));
+        }
         return true;
     } else {
         primaryLaneChanged(source, target, direction);
         return false;
     }
 }
+
+void 
+MSAbstractLaneChangeModel::initSmoothLC(int n) {
+    // if there was a different initialization size originally,
+    // then resize the parts vector appropriately
+    if (mySmoothSteps.size() != n) {
+        double totalNumParts = 1/30.0 * n * (n+1) * (n*n*n + 4*n*n + 6*n + 4);
+        mySmoothSteps.resize(n+1);
+        for (int k=0; k < n+1; ++k)
+        {
+            double denum = 1/6.0*(n+1)*(n+1)*k*(k+1)*(2*k+1) - 
+                1/2.0*(n+1)*k*k*(k+1)*(k+1) + 
+                1/30.0*k*(k+1)*(2*k+1)*(3*k*k+3*k-1);
+            mySmoothSteps[k] = denum/totalNumParts;
+            //std::cout << "k=" << k << 
+                //" denum=" << denum <<
+                //" denom=" << totalNumParts <<
+                //" mySmoothSteps[k]" << mySmoothSteps[k] << "\n";
+        }
+    }
+    mySmoothLCIndexCurrent = 0;
+    mySmoothLCIndexTarget = 0;
+}
+    
+
 
 void
 MSAbstractLaneChangeModel::memorizeGapsAtLCInit() {
@@ -272,11 +304,38 @@ MSAbstractLaneChangeModel::laneChangeOutput(const std::string& tag, MSLane* sour
 
 double
 MSAbstractLaneChangeModel::computeSpeedLat(double /*latDist*/, double& maneuverDist) {
-    if (myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
-        int stepsToChange = (int)ceil(maneuverDist / SPEED2DIST(myVehicle.getVehicleType().getMaxSpeedLat()));
-        return DIST2SPEED(maneuverDist / stepsToChange);
+    if (!mySmoothLC)
+    {
+        // if using the base model, just divide linearly
+        // this is the original code path
+        if (myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
+            int stepsToChange = (int)ceil(maneuverDist / SPEED2DIST(myVehicle.getVehicleType().getMaxSpeedLat()));
+            return DIST2SPEED(maneuverDist / stepsToChange);
+        } else {
+            return maneuverDist / STEPS2TIME(MSGlobals::gLaneChangeDuration);
+        }
     } else {
-        return maneuverDist / STEPS2TIME(MSGlobals::gLaneChangeDuration);
+        // increment the target every time
+        if (mySmoothLCIndexTarget < STEPS2TIME(MSGlobals::gLaneChangeDuration))
+            mySmoothLCIndexTarget++;
+        // check if we need to increment the current locator every time, too
+        if (mySmoothLCIndexCurrent < STEPS2TIME(MSGlobals::gLaneChangeDuration) && 
+            myLaneChangeCompletion > mySmoothSteps[mySmoothLCIndexCurrent+1]-0.0001)
+            mySmoothLCIndexCurrent++;
+        double theoreticalSpeed = DIST2SPEED(maneuverDist * 
+                (mySmoothSteps[mySmoothLCIndexTarget] - 
+                 mySmoothSteps[mySmoothLCIndexCurrent]));
+        std::cout << "maneuverDist=" << maneuverDist << 
+        " mySmoothLCIndexCurrent=" << mySmoothLCIndexCurrent <<
+        " mySmoothLCIndexTarget=" << mySmoothLCIndexTarget <<
+        " mySmoothSteps[mySmoothLCIndexCurrent]=" << mySmoothSteps[mySmoothLCIndexCurrent] <<
+        " mySmoothSteps[mySmoothLCIndexTarget]=" << mySmoothSteps[mySmoothLCIndexTarget]
+        << "\n";
+        if (myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
+            return fmin(theoreticalSpeed,myVehicle.getVehicleType().getMaxSpeedLat());
+        } else {
+            return theoreticalSpeed;
+        }
     }
 }
 
@@ -294,6 +353,8 @@ MSAbstractLaneChangeModel::updateCompletion() {
     double maneuverDist = getManeuverDist();
     mySpeedLat = computeSpeedLat(0, maneuverDist);
     myLaneChangeCompletion += (SPEED2DIST(mySpeedLat) / myManeuverDist);
+    std::cout << "mySpeedLat=" << mySpeedLat << 
+        " myLCCompl=" <<  myLaneChangeCompletion << "\n";
     return !pastBefore && pastMidpoint();
 }
 

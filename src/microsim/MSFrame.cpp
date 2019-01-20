@@ -318,6 +318,9 @@ MSFrame::fillOptions() {
     oc.doRegister("lanechange.overtake-right", new Option_Bool(false));
     oc.addDescription("lanechange.overtake-right", "Processing", "Whether overtaking on the right on motorways is permitted");
 
+    oc.doRegister("lanechange.smooth-change", new Option_Bool(false));
+    oc.addDescription("lanechange.smooth-change", "Processing", "Whether to use a smooth lane change curve instead of linear");
+
     oc.doRegister("tls.all-off", new Option_Bool(false));
     oc.addDescription("tls.all-off", "Processing", "Switches off all traffic lights.");
 

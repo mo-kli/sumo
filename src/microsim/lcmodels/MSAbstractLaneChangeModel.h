@@ -669,6 +669,12 @@ protected:
     static bool myLCStartedOutput;
     static bool myLCEndedOutput;
 
+    // variables to control the smooth lane change process
+    static bool mySmoothLC;
+    int mySmoothLCIndexCurrent;
+    int mySmoothLCIndexTarget;
+    void initSmoothLC(int LCDuration);
+    std::vector<double> mySmoothSteps;
 
 private:
     /* @brief information how long ago the vehicle has performed a lane-change,
