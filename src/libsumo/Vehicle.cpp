@@ -1138,6 +1138,11 @@ Vehicle::setLaneChangeMode(const std::string& vehicleID, int laneChangeMode) {
 }
 
 void
+Vehicle::setLaneChangeDuration(const std::string& vehicleID, SUMOTime laneChangeDuration) {
+    getVehicle(vehicleID)->getLaneChangeModel().setLaneChangeDuration(laneChangeDuration);
+}
+
+void
 Vehicle::setRoutingMode(const std::string& vehicleID, int routingMode) {
     getVehicle(vehicleID)->getInfluencer().setRoutingMode(routingMode);
 }

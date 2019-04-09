@@ -554,6 +554,9 @@ public:
 
     static const double NO_NEIGHBOR;
 
+    /// @brief Set the lane change duration for this vehicle, if different
+    void setLaneChangeDuration(SUMOTime laneChangeDuration);
+
 protected:
     virtual bool congested(const MSVehicle* const neighLeader);
 
@@ -669,7 +672,10 @@ protected:
     static bool myLCStartedOutput;
     static bool myLCEndedOutput;
 
-    // variables to control the smooth lane change process
+    /// @brief lane change duration. this is initialized as MSGlobals::gLaneChangeDuration
+    SUMOTime myLCDuration;
+
+    /// @brief variables to control the smooth lane change process
     static bool mySmoothLC;
     int mySmoothLCIndexCurrent;
     int mySmoothLCIndexTarget;

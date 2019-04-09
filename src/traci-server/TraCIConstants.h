@@ -620,6 +620,9 @@
 // max. comfortable deceleration (get: vehicles, vehicle types)
 #define VAR_DECEL 0x47
 
+// lane change duration
+#define VAR_LC_DURATION 0xaf
+
 // max. (physically possible) deceleration (get: vehicles, vehicle types)
 #define VAR_EMERGENCY_DECEL 0x7b
 
@@ -969,6 +972,5 @@
 
 // presence of view
 #define VAR_HAS_VIEW 0xa7
-
 
 #endif

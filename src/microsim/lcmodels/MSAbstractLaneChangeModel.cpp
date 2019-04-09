@@ -118,6 +118,7 @@ MSAbstractLaneChangeModel::MSAbstractLaneChangeModel(MSVehicle& v, const LaneCha
     myDontResetLCGaps(false),
     myMaxSpeedLatStanding(v.getVehicleType().getParameter().getLCParam(SUMO_ATTR_LCA_MAXSPEEDLATSTANDING, v.getVehicleType().getMaxSpeedLat())),
     myMaxSpeedLatFactor(v.getVehicleType().getParameter().getLCParam(SUMO_ATTR_LCA_MAXSPEEDLATFACTOR, 1)),
+    myLCDuration(MSGlobals::gLaneChangeDuration),
     myLastLaneChangeOffset(0),
     myAmOpposite(false) {
 }
@@ -197,7 +198,7 @@ MSAbstractLaneChangeModel::startLaneChangeManeuver(MSLane* source, MSLane* targe
     if (&source->getEdge() != &target->getEdge()) {
         changedToOpposite();
     }
-    if (MSGlobals::gLaneChangeDuration > DELTA_T) {
+    if (myLCDuration > DELTA_T) {
         myLaneChangeCompletion = 0;
         myLaneChangeDirection = direction;
         setManeuverDist(target->getCenterOnEdge() - source->getCenterOnEdge());
@@ -208,7 +209,7 @@ MSAbstractLaneChangeModel::startLaneChangeManeuver(MSLane* source, MSLane* targe
         }
         if (mySmoothLC)
         {
-            initSmoothLC(STEPS2TIME(MSGlobals::gLaneChangeDuration));
+            initSmoothLC(STEPS2TIME(myLCDuration));
         }
         return true;
     } else {
@@ -240,6 +241,14 @@ MSAbstractLaneChangeModel::initSmoothLC(int n) {
     mySmoothLCIndexTarget = 0;
 }
     
+void
+MSAbstractLaneChangeModel::setLaneChangeDuration(SUMOTime laneChangeDuration) {
+  myLCDuration = laneChangeDuration;
+  if (mySmoothLC)
+  {
+      initSmoothLC(STEPS2TIME(myLCDuration));
+  }
+}
 
 
 void
@@ -295,7 +304,7 @@ MSAbstractLaneChangeModel::laneChangeOutput(const std::string& tag, MSLane* sour
             of.writeAttr("latGap", latGap == NO_NEIGHBOR ? "None" : toString(latGap));
         }
         of.closeTag();
-        if (MSGlobals::gLaneChangeDuration > DELTA_T) {
+        if (myLCDuration > DELTA_T) {
             clearGapsAtLCInit();
         }
     }
@@ -312,14 +321,14 @@ MSAbstractLaneChangeModel::computeSpeedLat(double /*latDist*/, double& maneuverD
             int stepsToChange = (int)ceil(maneuverDist / SPEED2DIST(myVehicle.getVehicleType().getMaxSpeedLat()));
             return DIST2SPEED(maneuverDist / stepsToChange);
         } else {
-            return maneuverDist / STEPS2TIME(MSGlobals::gLaneChangeDuration);
+            return maneuverDist / STEPS2TIME(myLCDuration);
         }
     } else {
         // increment the target every time
-        if (mySmoothLCIndexTarget < STEPS2TIME(MSGlobals::gLaneChangeDuration))
+        if (mySmoothLCIndexTarget < STEPS2TIME(myLCDuration))
             mySmoothLCIndexTarget++;
         // check if we need to increment the current locator every time, too
-        if (mySmoothLCIndexCurrent < STEPS2TIME(MSGlobals::gLaneChangeDuration) && 
+        if (mySmoothLCIndexCurrent < STEPS2TIME(myLCDuration) && 
             myLaneChangeCompletion > mySmoothSteps[mySmoothLCIndexCurrent+1]-0.0001)
             mySmoothLCIndexCurrent++;
         double theoreticalSpeed = DIST2SPEED(maneuverDist * 
@@ -619,7 +628,7 @@ MSAbstractLaneChangeModel::determineTargetLane(int& targetDir) const {
 
 double
 MSAbstractLaneChangeModel::getAngleOffset() const {
-    const double angleOffset = 60 / STEPS2TIME(MSGlobals::gLaneChangeDuration) * (pastMidpoint() ? 1 - myLaneChangeCompletion : myLaneChangeCompletion);
+    const double angleOffset = 60 / STEPS2TIME(myLCDuration) * (pastMidpoint() ? 1 - myLaneChangeCompletion : myLaneChangeCompletion);
     return myLaneChangeDirection * angleOffset;
 }
 
@@ -631,7 +640,7 @@ MSAbstractLaneChangeModel::estimateLCDuration(const double speed, const double r
     if (lcParams.find(SUMO_ATTR_LCA_MAXSPEEDLATSTANDING) == lcParams.end() && lcParams.find(SUMO_ATTR_LCA_MAXSPEEDLATFACTOR) == lcParams.end()) {
         if (!myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
             // no dependency of lateral speed on longitudinal speed. (Only called prior to LC initialization to determine whether it could be completed)
-            return STEPS2TIME(MSGlobals::gLaneChangeDuration);
+            return STEPS2TIME(myLCDuration);
         } else {
             return remainingManeuverDist / myVehicle.getVehicleType().getMaxSpeedLat();
         }
@@ -730,7 +739,7 @@ MSAbstractLaneChangeModel::remainingTime() const {
         if (myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
             return TIME2STEPS((1. - myLaneChangeCompletion) * myManeuverDist / myVehicle.getVehicleType().getMaxSpeedLat());
         } else {
-            return (SUMOTime)((1. - myLaneChangeCompletion) * MSGlobals::gLaneChangeDuration);
+            return (SUMOTime)((1. - myLaneChangeCompletion) * myLCDuration);
         }
     }
     // Using maxSpeedLat(Factor/Standing)

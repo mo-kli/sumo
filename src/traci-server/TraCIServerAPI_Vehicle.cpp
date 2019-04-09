@@ -709,6 +709,14 @@ TraCIServerAPI_Vehicle::processSet(TraCIServer& server, tcpip::Storage& inputSto
                 libsumo::Vehicle::setSpeed(id, speed);
             }
             break;
+            case VAR_LC_DURATION: {
+                int lcduration = 0;
+                if (!server.readTypeCheckingInt(inputStorage, lcduration)) {
+                    return server.writeErrorStatusCmd(CMD_SET_VEHICLE_VARIABLE, "Setting lane change duration requires an integer.", outputStorage);
+                }
+                libsumo::Vehicle::setLaneChangeDuration(id, (SUMOTime) lcduration);
+            }
+            break;
             case VAR_SPEEDSETMODE: {
                 int speedMode = 0;
                 if (!server.readTypeCheckingInt(inputStorage, speedMode)) {
