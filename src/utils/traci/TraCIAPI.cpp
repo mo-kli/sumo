@@ -2795,11 +2795,11 @@ TraCIAPI::VehicleScope::openGap(const std::string& vehicleID, double newTau, dou
 }
 
 void
-TraCIAPI::VehicleScope::setSpeed(const std::string& vehicleID, double speed) const {
+TraCIAPI::VehicleScope::setLaneChangeDuration(const std::string& vehicleID, int duration) const {
     tcpip::Storage content;
-    content.writeUnsignedByte(TYPE_DOUBLE);
-    content.writeDouble(speed);
-    myParent.send_commandSetValue(CMD_SET_VEHICLE_VARIABLE, VAR_SPEED, vehicleID, content);
+    content.writeUnsignedByte(TYPE_INTEGER);
+    content.writeInt(duration);
+    myParent.send_commandSetValue(CMD_SET_VEHICLE_VARIABLE, VAR_LC_DURATION, vehicleID, content);
     tcpip::Storage inMsg;
     myParent.check_resultState(inMsg, CMD_SET_VEHICLE_VARIABLE);
 }
