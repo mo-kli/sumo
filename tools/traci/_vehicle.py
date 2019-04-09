@@ -1185,6 +1185,14 @@ class VehicleDomain(Domain):
         self._connection._sendDoubleCmd(
             tc.CMD_SET_VEHICLE_VARIABLE, tc.VAR_SPEED, vehID, speed)
 
+    def setLaneChangeDuration(self, vehID, lcduration):
+        """setLaneChangeDuration(string, int) -> None
+
+        Sets the lane change duration for the specified vehicle.
+        """
+        self._connection._sendIntCmd(
+            tc.CMD_SET_VEHICLE_VARIABLE, tc.VAR_LC_DURATION, vehID, lcduration)
+
     def setColor(self, vehID, color):
         """setColor(string, (integer, integer, integer, integer))
 
