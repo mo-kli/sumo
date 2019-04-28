@@ -243,7 +243,9 @@ MSAbstractLaneChangeModel::initSmoothLC(int n) {
     
 void
 MSAbstractLaneChangeModel::setLaneChangeDuration(SUMOTime laneChangeDuration) {
-  myLCDuration = laneChangeDuration;
+  //std::cout << "currDuration=" << myLCDuration <<
+    //" newDuration=" << TIME2STEPS(laneChangeDuration);
+  myLCDuration = TIME2STEPS(laneChangeDuration);
   if (mySmoothLC)
   {
       initSmoothLC(STEPS2TIME(myLCDuration));
@@ -334,12 +336,12 @@ MSAbstractLaneChangeModel::computeSpeedLat(double /*latDist*/, double& maneuverD
         double theoreticalSpeed = DIST2SPEED(maneuverDist * 
                 (mySmoothSteps[mySmoothLCIndexTarget] - 
                  mySmoothSteps[mySmoothLCIndexCurrent]));
-        std::cout << "maneuverDist=" << maneuverDist << 
-        " mySmoothLCIndexCurrent=" << mySmoothLCIndexCurrent <<
-        " mySmoothLCIndexTarget=" << mySmoothLCIndexTarget <<
-        " mySmoothSteps[mySmoothLCIndexCurrent]=" << mySmoothSteps[mySmoothLCIndexCurrent] <<
-        " mySmoothSteps[mySmoothLCIndexTarget]=" << mySmoothSteps[mySmoothLCIndexTarget]
-        << "\n";
+        //std::cout << "maneuverDist=" << maneuverDist << 
+        //" mySmoothLCIndexCurrent=" << mySmoothLCIndexCurrent <<
+        //" mySmoothLCIndexTarget=" << mySmoothLCIndexTarget <<
+        //" mySmoothSteps[mySmoothLCIndexCurrent]=" << mySmoothSteps[mySmoothLCIndexCurrent] <<
+        //" mySmoothSteps[mySmoothLCIndexTarget]=" << mySmoothSteps[mySmoothLCIndexTarget]
+        //<< "\n";
         if (myVehicle.getVehicleType().wasSet(VTYPEPARS_MAXSPEED_LAT_SET)) {
             return fmin(theoreticalSpeed,myVehicle.getVehicleType().getMaxSpeedLat());
         } else {
@@ -362,8 +364,8 @@ MSAbstractLaneChangeModel::updateCompletion() {
     double maneuverDist = getManeuverDist();
     mySpeedLat = computeSpeedLat(0, maneuverDist);
     myLaneChangeCompletion += (SPEED2DIST(mySpeedLat) / myManeuverDist);
-    std::cout << "mySpeedLat=" << mySpeedLat << 
-        " myLCCompl=" <<  myLaneChangeCompletion << "\n";
+    //std::cout << "mySpeedLat=" << mySpeedLat << 
+        //" myLCCompl=" <<  myLaneChangeCompletion << "\n";
     return !pastBefore && pastMidpoint();
 }
 
