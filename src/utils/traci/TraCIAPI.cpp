@@ -2805,6 +2805,16 @@ TraCIAPI::VehicleScope::setLaneChangeDuration(const std::string& vehicleID, int 
 }
 
 void
+TraCIAPI::VehicleScope::setSpeed(const std::string& vehicleID, double speed) const {
+    tcpip::Storage content;
+    content.writeUnsignedByte(TYPE_DOUBLE);
+    content.writeDouble(speed);
+    myParent.send_commandSetValue(CMD_SET_VEHICLE_VARIABLE, VAR_SPEED, vehicleID, content);
+    tcpip::Storage inMsg;
+    myParent.check_resultState(inMsg, CMD_SET_VEHICLE_VARIABLE);
+}
+
+void
 TraCIAPI::VehicleScope::setSpeedMode(const std::string& vehicleID, int mode) const {
     tcpip::Storage content;
     content.writeByte(TYPE_INTEGER);
@@ -3329,4 +3339,3 @@ TraCIAPI::TraCIScopeWrapper::getModifiableContextSubscriptionResults(const std::
 
 
 /****************************************************************************/
-
