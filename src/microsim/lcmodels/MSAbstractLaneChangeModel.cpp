@@ -245,10 +245,13 @@ void
 MSAbstractLaneChangeModel::setLaneChangeDuration(SUMOTime laneChangeDuration) {
   //std::cout << "currDuration=" << myLCDuration <<
     //" newDuration=" << TIME2STEPS(laneChangeDuration);
-  myLCDuration = TIME2STEPS(laneChangeDuration);
-  if (mySmoothLC)
+  if (myLCDuration != TIME2STEPS(laneChangeDuration))
   {
-      initSmoothLC(STEPS2TIME(myLCDuration));
+    myLCDuration = TIME2STEPS(laneChangeDuration);
+    if (mySmoothLC)
+    {
+        initSmoothLC(STEPS2TIME(myLCDuration));
+    }
   }
 }
 
