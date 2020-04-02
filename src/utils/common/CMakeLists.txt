@@ -1,5 +1,4 @@
 set(utils_common_STAT_SRCS
-   AbstractMutex.h
    Command.h
    FileHelpers.cpp
    FileHelpers.h
@@ -13,6 +12,8 @@ set(utils_common_STAT_SRCS
    NamedRTree.h
    Parameterised.cpp
    Parameterised.h
+   PolySolver.h
+   PolySolver.cpp
    RandHelper.h
    RandHelper.cpp
    RGBColor.cpp

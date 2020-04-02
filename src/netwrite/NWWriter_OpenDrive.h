@@ -1,26 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    NWWriter_OpenDrive.h
 /// @author  Daniel Krajzewicz
 /// @date    Tue, 04.05.2011
-/// @version $Id$
 ///
 // Exporter writing networks using the openDRIVE format
 /****************************************************************************/
-#ifndef NWWriter_OpenDrive_h
-#define NWWriter_OpenDrive_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <utils/common/StringBijection.h>
@@ -37,6 +34,7 @@ class OptionsCont;
 class PositionVector;
 class OutputDevice;
 class OutputDevice_String;
+class ShapeContainer;
 
 
 // ===========================================================================
@@ -61,7 +59,8 @@ protected:
     static void writeNormalEdge(OutputDevice& device, const NBEdge* e,
                                 int edgeID, int fromNodeID, int toNodeID,
                                 const bool origNames,
-                                const double straightThresh);
+                                const double straightThresh,
+                                const ShapeContainer& shc);
 
     /// @brief write internal edge to device, return next connectionID
     static int writeInternalEdge(OutputDevice& device, OutputDevice& junctionDevice,
@@ -105,10 +104,7 @@ protected:
 
     /// @brief check if the lane geometries are compatible with OpenDRIVE assumptions (colinear stop line)
     static void checkLaneGeometries(const NBEdge* e);
+
+    /// @brief write road objects referenced as edge parameters
+    static void writeRoadObjects(OutputDevice& device, const NBEdge* e, const ShapeContainer& shc);
 };
-
-
-#endif
-
-/****************************************************************************/
-

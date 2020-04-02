@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2009-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2009-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    test.py
 # @author  Pablo Alvarez Lopez
 # @date    2016-11-25
-# @version $Id$
 
 # import common functions for netedit tests
 import os
@@ -32,7 +35,7 @@ netedit.setZoom("25", "25", "25")
 netedit.additionalMode()
 
 # select E3
-netedit.changeAdditional("e3Detector")
+netedit.changeElement("e3Detector")
 
 # create E3 1
 netedit.leftClick(referencePosition, 250, 100)
@@ -41,7 +44,7 @@ netedit.leftClick(referencePosition, 250, 100)
 netedit.leftClick(referencePosition, 450, 100)
 
 # select entry detector
-netedit.changeAdditional("detEntry")
+netedit.changeElement("detEntry")
 
 # Create Entry detector E3 (for saving)
 netedit.leftClick(referencePosition, 250, 100)
@@ -50,7 +53,7 @@ netedit.leftClick(referencePosition, 450, 100)
 netedit.leftClick(referencePosition, 450, 200)
 
 # select entry detector
-netedit.changeAdditional("detExit")
+netedit.changeElement("detExit")
 
 # Create Exit detector E3 (for saving)
 netedit.leftClick(referencePosition, 250, 100)
@@ -65,26 +68,26 @@ netedit.inspectMode()
 netedit.leftClick(referencePosition, 250, 100)
 
 # Change parameter id with a non valid value (Duplicated ID)
-netedit.modifyAttribute(0, "e3Detector_1")
+netedit.modifyAttribute(0, "e3Detector_1", False)
 
 # Change parameter id with a non valid value (invalid characters)
-netedit.modifyAttribute(0, ";;;;;;;;;;;;;;;;;")
+netedit.modifyAttribute(0, ";;;;;;;;;;;;;;;;;", False)
 
 # Change parameter id with a valid value (with spaces)
-netedit.modifyAttribute(0, "Id with spaces")
+netedit.modifyAttribute(0, "Id with spaces", False)
 
 # Change parameter id with a valid value
-netedit.modifyAttribute(0, "correctID")
+netedit.modifyAttribute(0, "correctID", False)
 
 # Check undos and redos
 netedit.undo(referencePosition, 8)
 netedit.redo(referencePosition, 8)
 
 # save additionals
-netedit.saveAdditionals()
+netedit.saveAdditionals(referencePosition)
 
 # save network
-netedit.saveNetwork()
+netedit.saveNetwork(referencePosition)
 
 # quit netedit
 netedit.quit(neteditProcess)

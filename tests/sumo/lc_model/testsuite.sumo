@@ -1,6 +1,9 @@
 # test vType attribute 'lcm'
 specify_lcm
 
+# test lateral imperfection
+lcSigma
+
 # change towards the best continuation lane if the current lane does not continue
 change_towards_best
 
@@ -26,6 +29,9 @@ onRamp
 # test continuous lane change maneuvers
 continuous_lanechange
 overtake_stopped
+
+# tests for behavior at a 2-lane roundabout
+roundabout
 
 # test effects of apparentDecel on lane changing
 #apparentDecel

@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    _edge.py
 # @author  Michael Behrisch
 # @author  Jakob Erdmann
 # @date    2011-03-17
-# @version $Id$
 
 from __future__ import absolute_import
 import struct
@@ -152,7 +155,7 @@ class EdgeDomain(Domain):
     def getLastStepOccupancy(self, edgeID):
         """getLastStepOccupancy(string) -> double
 
-        Returns the occupancy in % for the last time step on the given edge.
+        Returns the net occupancy (excluding inter-vehicle gaps) in % for the last time step on the given edge.
         """
         return self._getUniversal(tc.LAST_STEP_OCCUPANCY, edgeID)
 
@@ -272,6 +275,3 @@ class EdgeDomain(Domain):
         """
         self._connection._sendDoubleCmd(
             tc.CMD_SET_EDGE_VARIABLE, tc.VAR_MAXSPEED, edgeID, speed)
-
-
-EdgeDomain()

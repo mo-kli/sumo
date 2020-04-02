@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2008-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    runner.py
 # @author  Daniel Krajzewicz
 # @author  Michael Behrisch
 # @author  Leonhard Luecken
 # @date    2012-10-19
-# @version $Id$
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -20,18 +23,15 @@ from __future__ import print_function
 import os
 import sys
 
-sumoHome = os.path.abspath(
-    os.path.join(os.path.dirname(sys.argv[0]), '..', '..', '..', '..', ".."))
+sumoHome = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', ".."))
 sys.path.append(os.path.join(sumoHome, "tools"))
 import sumolib  # noqa
 import traci  # noqa
 
 if sys.argv[1] == "sumo":
-    sumoCall = [os.environ.get(
-        "SUMO_BINARY", os.path.join(sumoHome, 'bin', 'sumo')), ]
+    sumoCall = [sumolib.checkBinary('sumo')]
 else:
-    sumoCall = [os.environ.get(
-        "GUISIM_BINARY", os.path.join(sumoHome, 'bin', 'sumo-gui'))]  # , '-S', '-Q']
+    sumoCall = [sumolib.checkBinary('sumo-gui')]  # , '-S', '-Q']
 
 egoID = "ego"
 
@@ -45,18 +45,17 @@ def runSingle(traciEndTime, downstreamDist, upstreamDist, lanes, opposite, vType
         near1 = set()
         if subscribed:
             print("Context results for veh '%s':" % egoID)
-            results = traci.vehicle.getContextSubscriptionResults(egoID)
-            if results:
-                for v in sorted(results):
-                    print(v)
-                    near1.add(v)
+            for v in sorted(traci.vehicle.getContextSubscriptionResults(egoID) or []):
+                print(v)
+                near1.add(v)
 
         if not subscribed:
             print("Subscribing to context of vehicle '%s'" % (egoID))
             traci.vehicle.subscribeContext(egoID, traci.constants.CMD_GET_VEHICLE_VARIABLE, 0.0,
                                            [traci.constants.VAR_POSITION])
-            print("Adding subscription filters ... \n(downstreamDist=%s, upstreamDist=%s, lanes=%s, opposite=%s\n   vTypes:%s, vClasses:%s)" % (
-                downstreamDist, upstreamDist, lanes, opposite, vTypes, vClasses))
+            print("""Adding subscription filters ...
+(downstreamDist=%s, upstreamDist=%s, lanes=%s, opposite=%s
+   vTypes:%s, vClasses:%s)""" % (downstreamDist, upstreamDist, lanes, opposite, vTypes, vClasses))
             sys.stdout.flush()
             traci.vehicle.addSubscriptionFilterDownstreamDistance(downstreamDist)
             traci.vehicle.addSubscriptionFilterUpstreamDistance(upstreamDist)
@@ -76,15 +75,14 @@ def runSingle(traciEndTime, downstreamDist, upstreamDist, lanes, opposite, vType
         print("Error: Unsubscribe did not work")
     else:
         print("Ok: Unsubscribe successful")
-    print("Print ended at step %s" %
-          (traci.simulation.getTime()))
+    print("Print ended at step %s" % traci.simulation.getTime())
     traci.close()
     sys.stdout.flush()
 
 
 if len(sys.argv) < 8:
-    print(
-        "Usage: runner <sumo/sumo-gui> <downstreamDist> <upstreamDist> <lanes(csv)> <opposite{0,1}> <vTypes> <vClasses>")
+    print("Usage: runner <sumo/sumo-gui> <downstreamDist> <upstreamDist> <lanes(csv)> " +
+          "<opposite{0,1}> <vTypes> <vClasses>")
     sys.exit("")
 sys.stdout.flush()
 opposite = bool(int(sys.argv[5]))

@@ -1,26 +1,24 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    SUMOSAXAttributesImpl_Xerces.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Sept 2002
-/// @version $Id$
 ///
 // Encapsulated Xerces-SAX-attributes
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cassert>
@@ -155,7 +153,7 @@ SUMOSAXAttributesImpl_Xerces::getEdgeFunc(bool& ok) const {
         }
         ok = false;
     }
-    return EDGEFUNC_NORMAL;
+    return SumoXMLEdgeFunc::NORMAL;
 }
 
 
@@ -168,7 +166,7 @@ SUMOSAXAttributesImpl_Xerces::getNodeType(bool& ok) const {
         }
         ok = false;
     }
-    return NODETYPE_UNKNOWN;
+    return SumoXMLNodeType::UNKNOWN;
 }
 
 RightOfWay
@@ -180,9 +178,20 @@ SUMOSAXAttributesImpl_Xerces::getRightOfWay(bool& ok) const {
         }
         ok = false;
     }
-    return RIGHT_OF_WAY_DEFAULT;
+    return RightOfWay::DEFAULT;
 }
 
+FringeType
+SUMOSAXAttributesImpl_Xerces::getFringeType(bool& ok) const {
+    if (hasAttribute(SUMO_ATTR_FRINGE)) {
+        std::string fringeString = getString(SUMO_ATTR_FRINGE);
+        if (SUMOXMLDefinitions::FringeTypeValues.hasString(fringeString)) {
+            return SUMOXMLDefinitions::FringeTypeValues.get(fringeString);
+        }
+        ok = false;
+    }
+    return FringeType::DEFAULT;
+}
 
 RGBColor
 SUMOSAXAttributesImpl_Xerces::getColor() const {
@@ -227,15 +236,6 @@ SUMOSAXAttributesImpl_Xerces::getBoundary(int attr) const {
 }
 
 
-std::vector<std::string>
-SUMOSAXAttributesImpl_Xerces::getStringVector(int attr) const {
-    std::string def = getString(attr);
-    std::vector<std::string> ret;
-    parseStringVector(def, ret);
-    return ret;
-}
-
-
 std::string
 SUMOSAXAttributesImpl_Xerces::getName(int attr) const {
     if (myPredefinedTagsMML.find(attr) == myPredefinedTagsMML.end()) {
@@ -254,6 +254,16 @@ SUMOSAXAttributesImpl_Xerces::serialize(std::ostream& os) const {
 }
 
 
+std::vector<std::string>
+SUMOSAXAttributesImpl_Xerces::getAttributeNames() const {
+    std::vector<std::string> result;
+    for (int i = 0; i < (int)myAttrs.getLength(); ++i) {
+        result.push_back(StringUtils::transcode(myAttrs.getLocalName(i)));
+    }
+    return result;
+}
+
+
 SUMOSAXAttributes*
 SUMOSAXAttributesImpl_Xerces::clone() const {
     std::map<std::string, std::string> attrs;
@@ -263,5 +273,5 @@ SUMOSAXAttributesImpl_Xerces::clone() const {
     return new SUMOSAXAttributesImpl_Cached(attrs, myPredefinedTagsMML, getObjectType());
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

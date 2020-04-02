@@ -1,26 +1,24 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSStateHandler.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Michael Behrisch
 /// @author  Jakob Erdmann
 /// @date    Thu, 13 Dec 2012
-/// @version $Id$
 ///
 // Parser and output filter for routes and vehicles state saving and loading
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #ifdef HAVE_VERSION_H
@@ -32,9 +30,10 @@
 #include <utils/options/OptionsCont.h>
 #include <utils/iodevices/OutputDevice.h>
 #include <utils/xml/SUMOXMLDefinitions.h>
-#include <utils/xml/SUMOVehicleParserHelper.h>
+#include <utils/vehicle/SUMOVehicleParserHelper.h>
 #include <microsim/devices/MSDevice_Routing.h>
 #include <microsim/devices/MSDevice_BTreceiver.h>
+#include <microsim/devices/MSDevice_ToC.h>
 #include <microsim/MSEdge.h>
 #include <microsim/MSLane.h>
 #include <microsim/MSGlobals.h>
@@ -57,7 +56,7 @@ MSStateHandler::MSStateHandler(const std::string& file, const SUMOTime offset) :
     MSRouteHandler(file, true),
     myOffset(offset),
     mySegment(nullptr),
-    myEdgeAndLane(0, -1),
+    myCurrentLane(nullptr),
     myAttrs(nullptr),
     myLastParameterised(nullptr) {
     myAmLoadingState = true;
@@ -131,6 +130,9 @@ MSStateHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             if (attrs.hasAttribute(SUMO_ATTR_RNG_DRIVERSTATE)) {
                 RandHelper::loadState(attrs.getString(SUMO_ATTR_RNG_DEFAULT), OUProcess::getRNG());
             }
+            if (attrs.hasAttribute(SUMO_ATTR_RNG_DEVICE_TOC)) {
+                RandHelper::loadState(attrs.getString(SUMO_ATTR_RNG_DEFAULT), MSDevice_ToC::getResponseTimeRNG());
+            }
             break;
         }
         case SUMO_TAG_DELAY: {
@@ -144,6 +146,10 @@ MSStateHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
         case SUMO_TAG_FLOWSTATE: {
             SUMOVehicleParameter* pars = new SUMOVehicleParameter();
             pars->id = attrs.getString(SUMO_ATTR_ID);
+            bool ok;
+            if (attrs.getOpt<bool>(SUMO_ATTR_REROUTE, nullptr, ok, false)) {
+                pars->parametersSet |= VEHPARS_FORCE_REROUTE;
+            }
             MSNet::getInstance()->getInsertionControl().addFlow(pars,
                     attrs.getInt(SUMO_ATTR_INDEX));
             break;
@@ -177,22 +183,24 @@ MSStateHandler::myStartElement(int element, const SUMOSAXAttributes& attrs) {
             break;
         }
         case SUMO_TAG_LANE: {
-            myEdgeAndLane.second++;
-            if (myEdgeAndLane.second == (int)MSEdge::getAllEdges()[myEdgeAndLane.first]->getLanes().size()) {
-                myEdgeAndLane.first++;
-                myEdgeAndLane.second = 0;
+            bool ok;
+            const std::string laneID = attrs.get<std::string>(SUMO_ATTR_ID, nullptr, ok);
+            myCurrentLane = MSLane::dictionary(laneID);
+            if (myCurrentLane == nullptr) {
+                throw ProcessError("Unknown lane '" + laneID + "' in loaded state");
             }
             break;
         }
         case SUMO_TAG_VIEWSETTINGS_VEHICLES: {
-            std::vector<std::string> vehIDs;
-            SUMOSAXAttributes::parseStringVector(attrs.getString(SUMO_ATTR_VALUE), vehIDs);
-            if (MSGlobals::gUseMesoSim) {
-                mySegment->loadState(vehIDs, MSNet::getInstance()->getVehicleControl(), StringUtils::toLong(attrs.getString(SUMO_ATTR_TIME)) - myOffset, myQueIndex++);
-            } else {
-                MSEdge::getAllEdges()[myEdgeAndLane.first]->getLanes()[myEdgeAndLane.second]->loadState(
-                    vehIDs, MSNet::getInstance()->getVehicleControl());
-            }
+            try {
+                const std::vector<std::string>& vehIDs = attrs.getStringVector(SUMO_ATTR_VALUE);
+                if (MSGlobals::gUseMesoSim) {
+                    mySegment->loadState(vehIDs, MSNet::getInstance()->getVehicleControl(), StringUtils::toLong(attrs.getString(SUMO_ATTR_TIME)) - myOffset, myQueIndex);
+                } else {
+                    myCurrentLane->loadState(vehIDs, MSNet::getInstance()->getVehicleControl());
+                }
+            } catch (EmptyData&) {} // attr may be empty
+            myQueIndex++;
             break;
         }
         case SUMO_TAG_PARAM: {
@@ -272,6 +280,7 @@ MSStateHandler::saveRNGs(OutputDevice& out) {
     out.writeAttr(SUMO_ATTR_RNG_DEVICE, RandHelper::saveState(MSDevice::getEquipmentRNG()));
     out.writeAttr(SUMO_ATTR_RNG_DEVICE_BT, RandHelper::saveState(MSDevice_BTreceiver::getRNG()));
     out.writeAttr(SUMO_ATTR_RNG_DRIVERSTATE, RandHelper::saveState(OUProcess::getRNG()));
+    out.writeAttr(SUMO_ATTR_RNG_DEVICE_TOC, RandHelper::saveState(MSDevice_ToC::getResponseTimeRNG()));
     out.closeTag();
 
 }

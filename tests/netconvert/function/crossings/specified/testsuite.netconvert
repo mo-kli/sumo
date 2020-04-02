@@ -50,6 +50,9 @@ sumonet_customTLIndex2
 # 4 arm junction with 1 crossing (with custom shape)
 4_arm_1_customshape
 
+# 4 arm junction with 1 crossing (with custom shape), shifted by normalization
+4_arm_1_customshape_normalized
+
 # reimport .net.xml and keep the crossings with its custom shape
 sumonet_customshape
 
@@ -72,8 +75,14 @@ sumonet_customshape
 # test custom walking area shapes and shifting the network
 4_arm_3_neighboring_split_customshape_shifted
 
+# custom walking area shapes, shifter by user defined offset
+4_arm_3_neighboring_split_customshape_shifted2
+
 # reimport .net.xml and keep the crossings and walkingareas with custom shape
 sumonet_custom_washape
+
+# reimport .net.xml and keep the crossings and walkingareas with custom shape
+sumonet_customshapes_shifted
 4_arm_mixed_priority
 
 # reimport .net.xml and keep the crossings with their original priorities
@@ -135,3 +144,6 @@ discard_no_internal2
 # .tll.xml and .con.xml file are inconsistent
 inconsistent_tll
 custom_tll
+
+# railway crossing with pedestrian crossings
+rail_crossing

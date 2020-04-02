@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2010-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2010-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    traciToHex.py
 # @author  Michael Behrisch
 # @date    2010-09-08
-# @version $Id$
 
 
 from __future__ import print_function
@@ -31,15 +34,15 @@ for root, dirs, files in os.walk(mRoot):
             out = open(full + ".hex", 'w')
             change = False
             for line in open(full):
-                l = line.split()
-                if l and l[0] in ["setvalue", "getvalue", "getvariable", "getvariable_plus"]:
-                    if not l[1][:2] == "0x":
-                        l[1] = "0x%x" % int(l[1])
+                ls = line.split()
+                if ls and ls[0] in ["setvalue", "getvalue", "getvariable", "getvariable_plus"]:
+                    if not ls[1][:2] == "0x":
+                        ls[1] = "0x%x" % int(ls[1])
                         change = True
-                    if not l[2][:2] == "0x":
-                        l[2] = "0x%x" % int(l[2])
+                    if not ls[2][:2] == "0x":
+                        ls[2] = "0x%x" % int(ls[2])
                         change = True
-                print(" ".join(l), file=out)
+                print(" ".join(ls), file=out)
             out.close()
             if change:
                 if os.name != "posix":

@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2010-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2010-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    checkStyle.py
 # @author  Michael Behrisch
 # @date    2010-08-29
-# @version $Id$
 
 """
 Checks svn property settings for all files and pep8 for python
@@ -20,8 +23,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import os
-import sys
 import subprocess
+import multiprocessing
 import xml.sax
 import codecs
 from optparse import OptionParser
@@ -29,14 +32,21 @@ try:
     import flake8  # noqa
     HAVE_FLAKE = True
 except ImportError:
+    print("Python flake not found. Python style checking is disabled.")
     HAVE_FLAKE = False
 try:
     import autopep8  # noqa
     HAVE_AUTOPEP = True
 except ImportError:
     HAVE_AUTOPEP = False
+try:
+    with open(os.devnull, 'w') as devnull:
+        subprocess.check_call(['astyle', '--version'], stdout=devnull)
+    HAVE_ASTYLE = True
+except (OSError, subprocess.CalledProcessError):
+    HAVE_ASTYLE = False
 
-_SOURCE_EXT = [".h", ".cpp", ".py", ".pyw", ".pl", ".java", ".am", ".cs"]
+_SOURCE_EXT = set([".h", ".cpp", ".py", ".pyw", ".pl", ".java", ".am", ".cs", ".c"])
 _TESTDATA_EXT = [".xml", ".prog", ".csv",
                  ".complex", ".dfrouter", ".duarouter", ".jtrrouter", ".marouter",
                  ".astar", ".chrouter", ".internal", ".tcl", ".txt",
@@ -53,12 +63,26 @@ _KEYWORDS = "HeadURL Id LastChangedBy LastChangedDate LastChangedRevision"
 SEPARATOR = "/****************************************************************************/\n"
 EPL_HEADER = """/****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
+// Copyright (C) 2001-2019 German Aerospace Center (DLR) and others.
 // This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v2.0
 // which accompanies this distribution, and is available at
 // http://www.eclipse.org/legal/epl-v20.html
 // SPDX-License-Identifier: EPL-2.0
+/****************************************************************************/
+"""
+EPL_GPL_HEADER = """/****************************************************************************/
+// Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 """
 
@@ -67,9 +91,10 @@ class PropertyReader(xml.sax.handler.ContentHandler):
 
     """Reads the svn properties of files as written by svn pl -v --xml"""
 
-    def __init__(self, doFix, doPep):
+    def __init__(self, doFix, doPep, doLicense):
         self._fix = doFix
         self._pep = doPep
+        self._license = doFix or doLicense
         self._file = ""
         self._property = None
         self._value = ""
@@ -97,10 +122,6 @@ class PropertyReader(xml.sax.handler.ContentHandler):
             if s[:2] != [comment, "@date"]:
                 print(self._file, "broken @date reference", s)
             idx += 1
-            s = lines[idx].split()
-            if s[:2] != [comment, "@version"]:
-                print(self._file, "broken @version reference", s)
-            idx += 1
             if lines[idx] not in (comment + "\n", "\n"):
                 print(self._file, "missing empty line", idx, lines[idx].rstrip())
         except IndexError:
@@ -117,17 +138,27 @@ class PropertyReader(xml.sax.handler.ContentHandler):
             return
         self._haveFixed = False
         idx = 0
-        if ext in (".cpp", ".h"):
+        if ext in (".cpp", ".h", ".java", ".c"):
             if lines[idx] == SEPARATOR:
                 year = lines[idx + 2][17:21]
-                end = idx + 9
+                end = lines.index(SEPARATOR, idx + 1) + 1
                 license = EPL_HEADER.replace("2001", year)
+                newLicense = EPL_GPL_HEADER.replace("2001", year)
                 if "module" in lines[idx + 3]:
-                    end += 2
                     fileLicense = "".join(lines[idx:idx + 3]) + "".join(lines[idx + 5:end])
                 else:
                     fileLicense = "".join(lines[idx:end])
-                if fileLicense != license:
+                if fileLicense == license:
+                    print(self._file, "old license")
+                    if self._license:
+                        if "module" in lines[idx + 3]:
+                            lines[idx:idx+3] = newLicense.splitlines(True)[:3]
+                            lines[idx+5:end] = newLicense.splitlines(True)[3:]
+                        else:
+                            lines[idx:end] = newLicense.splitlines(True)
+                        end += 4
+                        self._haveFixed = True
+                elif fileLicense != newLicense:
                     print(self._file, "invalid license")
                     if options.verbose:
                         print(fileLicense)
@@ -145,23 +176,34 @@ class PropertyReader(xml.sax.handler.ContentHandler):
                         self._haveFixed = True
             if lines[idx][:5] == '# -*-':
                 idx += 1
-            license = EPL_HEADER.replace("//   ", "# ").replace("// ", "# ").replace("\n//", "")
-            end = idx + 7
+            end = lines.index("\n", idx)
             if len(lines) < 13:
                 print(self._file, "is too short (%s lines, at least 13 required for valid header)" % len(lines))
                 return
             year = lines[idx + 1][16:20]
+            license = EPL_HEADER.replace("//   ", "# ").replace("// ", "# ").replace("\n//", "")
             license = license.replace("2001", year).replace(SEPARATOR, "")
+            newLicense = EPL_GPL_HEADER.replace("//   ", "# ").replace("// ", "# ").replace("\n//", "")
+            newLicense = newLicense.replace("2001", year).replace(SEPARATOR, "")
             if "module" in lines[idx + 2]:
-                end += 2
                 fileLicense = "".join(lines[idx:idx + 2]) + "".join(lines[idx + 4:end])
             else:
                 fileLicense = "".join(lines[idx:end])
-            if fileLicense != license:
-                print(self._file, "invalid license")
+            if fileLicense == license:
+                print(self._file, "old license")
+                if self._license:
+                    if "module" in lines[idx + 2]:
+                        lines[idx:idx+2] = newLicense.splitlines(True)[:2]
+                        lines[idx+4:end] = newLicense.splitlines(True)[2:]
+                    else:
+                        lines[idx:end] = newLicense.splitlines(True)
+                    end += 4
+                    self._haveFixed = True
+            elif fileLicense != newLicense:
+                print(self._file, "different license:")
+                print(fileLicense)
                 if options.verbose:
                     print("!!%s!!" % os.path.commonprefix([fileLicense, license]))
-                    print(fileLicense)
                     print(license)
             self.checkDoxyLines(lines, end + 1, "#")
         if self._haveFixed:
@@ -170,7 +212,7 @@ class PropertyReader(xml.sax.handler.ContentHandler):
     def startElement(self, name, attrs):
         if name == 'target':
             self._file = attrs['path']
-            seen.add(os.path.join(svnRoot, self._file))
+            seen.add(os.path.join(repoRoot, self._file))
         if name == 'property':
             self._property = attrs['name']
 
@@ -217,14 +259,15 @@ class PropertyReader(xml.sax.handler.ContentHandler):
                         subprocess.call(
                             ["svn", "ps", "svn:keywords", _KEYWORDS, self._file])
                 if name == 'target':
-                    self.checkFile()
+                    p = self.checkFile()
+                    if p is not None:
+                        p.wait()
             if ext in _VS_EXT:
                 if ((name == 'property' and self._property == "svn:eol-style" and self._value != "CRLF") or
                         (name == "target" and not self._hadEOL)):
                     print(self._file, "svn:eol-style", self._value)
                     if self._fix:
-                        subprocess.call(
-                            ["svn", "ps", "svn:eol-style", "CRLF", self._file])
+                        subprocess.call(["svn", "ps", "svn:eol-style", "CRLF", self._file])
         if name == 'property':
             self._value = ""
             self._property = None
@@ -232,7 +275,7 @@ class PropertyReader(xml.sax.handler.ContentHandler):
             self._hadEOL = False
             self._hadKeywords = False
 
-    def checkFile(self, fileName=None):
+    def checkFile(self, fileName=None, exclude=None):
         if fileName is not None:
             self._file = fileName
         ext = os.path.splitext(self._file)[1]
@@ -241,49 +284,79 @@ class PropertyReader(xml.sax.handler.ContentHandler):
         except UnicodeDecodeError as e:
             print(self._file, e)
         self.checkFileHeader(ext)
-        if self._pep and ext == ".py" and "/contributed/" not in self._file:
+        if exclude:
+            for x in exclude:
+                if x + "/" in self._file:
+                    return None
+        if ext in (".cpp", ".h", ".java") and HAVE_ASTYLE and self._fix:
+            subprocess.call(["astyle", "--style=java", "--unpad-paren", "--pad-header", "--pad-oper",
+                             "--add-brackets", "--indent-switches", "--align-pointer=type",
+                             "-n", os.path.abspath(self._file)])
+            subprocess.call(["sed", "-i", "-e", '$a\\', self._file])
+        if self._pep and ext == ".py":
+            ret = 0
             if HAVE_FLAKE and os.path.getsize(self._file) < 1000000:  # flake hangs on very large files
-                subprocess.call(["flake8", "--max-line-length", "120", self._file])
-            if HAVE_AUTOPEP and self._fix:
+                if not self._fix:
+                    return subprocess.Popen(["flake8", "--max-line-length", "120", self._file])
+                ret = subprocess.call(["flake8", "--max-line-length", "120", self._file])
+            if ret and HAVE_AUTOPEP and self._fix:
                 subprocess.call(["autopep8", "--max-line-length", "120", "--in-place", self._file])
 
 
-sumoRoot = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-svnRoots = [sumoRoot]
 optParser = OptionParser()
 optParser.add_option("-v", "--verbose", action="store_true",
                      default=False, help="tell me what you are doing")
 optParser.add_option("-f", "--fix", action="store_true",
-                     default=False, help="fix invalid svn properties")
+                     default=False, help="fix invalid svn properties, run astyle and autopep8")
+optParser.add_option("-l", "--license", action="store_true",
+                     default=False, help="fix license only")
 optParser.add_option("-s", "--skip-pep", action="store_true",
                      default=False, help="skip autopep8 and flake8 tests")
+optParser.add_option("-d", "--directory", help="check given subdirectory of sumo tree")
+optParser.add_option("-x", "--exclude", default="contributed,foreign",
+                     help="comma-separated list of (sub-)paths to exclude from pep and astyle checks")
 (options, args) = optParser.parse_args()
 seen = set()
+sumoRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if len(args) > 0:
-    svnRoots = [os.path.abspath(a) for a in args]
-for svnRoot in svnRoots:
+    repoRoots = [os.path.abspath(a) for a in args]
+elif options.directory:
+    repoRoots = [os.path.join(sumoRoot, options.directory)]
+else:
+    repoRoots = [sumoRoot]
+procs = []
+for repoRoot in repoRoots:
     if options.verbose:
-        print("checking", svnRoot)
-    propRead = PropertyReader(options.fix, not options.skip_pep)
+        print("checking", repoRoot)
+    propRead = PropertyReader(options.fix, not options.skip_pep, options.license)
+    if os.path.isfile(repoRoot):
+        proc = propRead.checkFile(repoRoot)
+        if proc is not None:
+            procs.append(proc)
+        continue
     try:
-        output = subprocess.check_output(["svn", "pl", "-v", "-R", "--xml", svnRoot])
-        xml.sax.parseString(output, propRead)
-    except (OSError, subprocess.CalledProcessError) as e:
-        print("This seems to be no valid svn repository", svnRoot, e)
-        if options.verbose:
-            print("trying git at", svnRoot)
         oldDir = os.getcwd()
-        os.chdir(svnRoot)
+        os.chdir(repoRoot)
+        exclude = options.exclude.split(",")
         for name in subprocess.check_output(["git", "ls-files"]).splitlines():
             ext = os.path.splitext(name)[1]
             if ext in _SOURCE_EXT:
-                propRead.checkFile(name)
+                proc = propRead.checkFile(name, exclude)
+                if proc is not None:
+                    procs.append(proc)
+                    if len(procs) == multiprocessing.cpu_count():
+                        [p.wait() for p in procs]
         os.chdir(oldDir)
-        sys.exit()
+        continue
+    except (OSError, subprocess.CalledProcessError) as e:
+        print("This seems to be no valid git repository", repoRoot, e)
+        if options.verbose:
+            print("trying svn at", repoRoot)
+        output = subprocess.check_output(["svn", "pl", "-v", "-R", "--xml", repoRoot])
+        xml.sax.parseString(output, propRead)
     if options.verbose:
-        print("re-checking tree at", svnRoot)
-    for root, dirs, files in os.walk(svnRoot):
+        print("re-checking tree at", repoRoot)
+    for root, dirs, files in os.walk(repoRoot):
         for name in files:
             ext = os.path.splitext(name)[1]
             if name not in _IGNORE:
@@ -310,3 +383,4 @@ for svnRoot in svnRoots:
         for ignoreDir in ['.svn', 'foreign', 'contributed', 'texttesttmp']:
             if ignoreDir in dirs:
                 dirs.remove(ignoreDir)
+[p.wait() for p in procs]

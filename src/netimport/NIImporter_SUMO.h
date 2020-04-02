@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    NIImporter_SUMO.h
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Mon, 14.04.2008
-/// @version $Id$
 ///
 // Importer for networks stored in SUMO format
 /****************************************************************************/
-#ifndef NIImporter_SUMO_h
-#define NIImporter_SUMO_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -31,6 +28,7 @@
 #include <utils/geom/GeoConvHelper.h>
 #include <utils/common/Parameterised.h>
 #include <netbuild/NBLoadedSUMOTLDef.h>
+#include "NIXMLTypesHandler.h"
 
 
 // ===========================================================================
@@ -83,11 +81,8 @@ protected:
      */
     NIImporter_SUMO(NBNetBuilder& nb);
 
-
     /// @brief Destructor
     ~NIImporter_SUMO();
-
-
 
     /// @name inherited from GenericSAXHandler
     //@{
@@ -185,6 +180,7 @@ private:
         std::string tlID;
         /// @brief The index of this connection within the controlling traffic light
         int tlLinkIndex;
+        int tlLinkIndex2;
         /// @brief Information about being definitely free to drive (on-ramps)
         bool mayDefinitelyPass;
         /// @brief Whether the junction must be kept clear coming from this connection
@@ -193,8 +189,12 @@ private:
         double contPos;
         /// @brief custom foe visibility for connection
         double visibility;
+        /// @brief custom permissions for connection
+        SVCPermissions permissions;
         /// @brief custom speed for connection
         double speed;
+        /// @brief custom length for connection
+        double customLength;
         /// @brief custom shape connection
         PositionVector customShape;
         /// @brief if set to true, This connection will not be TLS-controlled despite its node being controlled.
@@ -208,7 +208,7 @@ private:
     struct LaneAttrs : public Parameterised {
         /// @brief The maximum velocity allowed on this lane
         double maxSpeed;
-        /// @brief This lane's shape (needed to reconstruct edge shape for legacy networks)
+        /// @brief This lane's shape (may be custom)
         PositionVector shape;
         /// @brief This lane's connections
         std::vector<Connection> connections;
@@ -228,6 +228,8 @@ private:
         std::string oppositeID;
         /// @brief Whether this lane has a custom shape
         bool customShape;
+        /// @brief the type of this lane
+        std::string type;
     };
 
 
@@ -263,6 +265,8 @@ private:
         LaneSpreadFunction lsf;
         /// @brief This edge's vehicle specific stop offsets (used for lanes, that do not have a specified stopOffset)
         std::map<SVCPermissions, double> stopOffsets;
+        /// @brief The position at the start of this edge (kilometrage/mileage)
+        double distance;
     };
 
 
@@ -329,6 +333,9 @@ private:
     /// @brief The node container to fill
     NBTrafficLightLogicCont& myTLLCont;
 
+    /// @brief The handler for parsing edge types and restrictions
+    NIXMLTypesHandler myTypesHandler;
+
     /// @brief The currently parsed edge's definition (to add loaded lanes to)
     EdgeAttrs* myCurrentEdge;
 
@@ -352,6 +359,9 @@ private:
 
     /// @brief element to receive parameters
     std::vector<Parameterised*> myLastParameterised;
+
+    /// @brief the loaded network version
+    double myNetworkVersion;
 
     /// @brief whether the loaded network contains internal lanes
     bool myHaveSeenInternalEdge;
@@ -377,6 +387,9 @@ private:
     /// @brief whether foe-relationships where checked at lane-level
     bool myCheckLaneFoesAll;
     bool myCheckLaneFoesRoundabout;
+    /// @brief whether some right-of-way checks at traffic light junctions should be disabled
+    bool myTlsIgnoreInternalJunctionJam;
+    std::string myDefaultSpreadType;
 
     /// @brief loaded roundabout edges
     std::vector<std::vector<std::string> > myRoundabouts;
@@ -390,13 +403,6 @@ private:
      */
     LaneAttrs* getLaneAttrsFromID(EdgeAttrs* edge, std::string lane_id);
 
-    /** @brief reconstructs the edge shape from the node positions and the given lane shapes
-     * since we do not know the original LaneSpreadFunction this is only an
-     * approximation
-     * @param[in] lanes The list of lane attributes
-     */
-    static PositionVector reconstructEdgeShape(const EdgeAttrs* edge, const Position& from, const Position& to);
-
     /// @brief read position from the given attributes, attribute errors to id
     static Position readPosition(const SUMOSAXAttributes& attrs, const std::string& id, bool& ok);
 
@@ -408,9 +414,3 @@ private:
      */
     void parseProhibitionConnection(const std::string& attr, std::string& from, std::string& to, bool& ok);
 };
-
-
-#endif
-
-/****************************************************************************/
-

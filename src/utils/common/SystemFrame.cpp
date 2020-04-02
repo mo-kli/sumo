@@ -1,26 +1,24 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    SystemFrame.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Mon, 23.06.2003
-/// @version $Id$
 ///
 // A set of actions common to all applications
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include "SystemFrame.h"
@@ -71,8 +69,8 @@ SystemFrame::addReportOptions(OptionsCont& oc) {
     oc.doRegister("print-options", new Option_Bool(false));
     oc.addDescription("print-options", "Report", "Prints option values before processing");
 
-    oc.doRegister("help", '?', new Option_Bool(false));
-    oc.addDescription("help", "Report", "Prints this screen");
+    oc.doRegister("help", '?', new Option_BoolExtended(false));
+    oc.addDescription("help", "Report", "Prints this screen or selected topics");
 
     oc.doRegister("version", 'V', new Option_Bool(false));
     oc.addDescription("version", "Report", "Prints the current version");
@@ -86,6 +84,9 @@ SystemFrame::addReportOptions(OptionsCont& oc) {
     oc.doRegister("no-warnings", 'W', new Option_Bool(false));
     oc.addSynonyme("no-warnings", "suppress-warnings", true);
     oc.addDescription("no-warnings", "Report", "Disables output of warnings");
+
+    oc.doRegister("aggregate-warnings", new Option_Integer(-1));
+    oc.addDescription("aggregate-warnings", "Report", "Aggregate warnings of the same type whenever more than INT occur");
 
     oc.doRegister("log", 'l', new Option_FileName());
     oc.addSynonyme("log", "log-file");
@@ -120,12 +121,17 @@ SystemFrame::checkOptions() {
     gPrecision = oc.getInt("precision");
     gPrecisionGeo = oc.getInt("precision.geo");
     gHumanReadableTime = oc.getBool("human-readable-time");
+    if (oc.exists("weights.random-factor")) {
+        gWeightsRandomFactor = oc.getFloat("weights.random-factor");
+    }
     return true;
 }
 
 
 void
 SystemFrame::close() {
+    // flush aggregated warnings
+    MsgHandler::getWarningInstance()->clear();
     // close all output devices
     OutputDevice::closeAll();
     // close the xml-subsystem
@@ -138,4 +144,3 @@ SystemFrame::close() {
 
 
 /****************************************************************************/
-

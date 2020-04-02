@@ -1,25 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSLeaderInfo.cpp
 /// @author  Jakob Erdmann
 /// @date    Oct 2015
-/// @version $Id$
 ///
 // Information about vehicles ahead (may be multiple vehicles if
 // lateral-resolution is active)
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cassert>
@@ -146,8 +144,9 @@ void
 MSLeaderInfo::getSublaneBorders(int sublane, double latOffset, double& rightSide, double& leftSide) const {
     assert(sublane >= 0);
     assert(sublane < (int)myVehicles.size());
-    rightSide = sublane * MSGlobals::gLateralResolution + latOffset;
-    leftSide = MIN2((sublane + 1) * MSGlobals::gLateralResolution, myWidth) + latOffset;
+    const double res = MSGlobals::gLateralResolution > 0 ? MSGlobals::gLateralResolution : myWidth;
+    rightSide = sublane * res + latOffset;
+    leftSide = MIN2((sublane + 1) * res, myWidth) + latOffset;
 }
 
 
@@ -162,7 +161,7 @@ MSLeaderInfo::operator[](int sublane) const {
 std::string
 MSLeaderInfo::toString() const {
     std::ostringstream oss;
-    oss.setf(std::ios::fixed , std::ios::floatfield);
+    oss.setf(std::ios::fixed, std::ios::floatfield);
     oss << std::setprecision(2);
     for (int i = 0; i < (int)myVehicles.size(); ++i) {
         oss << Named::getIDSecure(myVehicles[i]);
@@ -204,6 +203,7 @@ MSLeaderDistanceInfo::MSLeaderDistanceInfo(const CLeaderDist& cLeaderDist, const
     myDistances(1, cLeaderDist.second) {
     assert(myVehicles.size() == 1);
     myVehicles[0] = cLeaderDist.first;
+    myHasVehicles = cLeaderDist.first != nullptr;
 }
 
 MSLeaderDistanceInfo::~MSLeaderDistanceInfo() { }
@@ -268,7 +268,7 @@ MSLeaderDistanceInfo::operator[](int sublane) const {
 std::string
 MSLeaderDistanceInfo::toString() const {
     std::ostringstream oss;
-    oss.setf(std::ios::fixed , std::ios::floatfield);
+    oss.setf(std::ios::fixed, std::ios::floatfield);
     oss << std::setprecision(2);
     for (int i = 0; i < (int)myVehicles.size(); ++i) {
         oss << Named::getIDSecure(myVehicles[i]) << ":";
@@ -305,7 +305,7 @@ MSCriticalFollowerDistanceInfo::addFollower(const MSVehicle* veh, const MSVehicl
     if (veh == nullptr) {
         return myFreeSublanes;
     }
-    const double requiredGap = veh->getCarFollowModel().getSecureGap(veh->getSpeed(), ego->getSpeed(), ego->getCarFollowModel().getMaxDecel());
+    const double requiredGap = veh->getCarFollowModel().getSecureGap(veh, ego, veh->getSpeed(), ego->getSpeed(), ego->getCarFollowModel().getMaxDecel());
     const double missingGap = requiredGap - gap;
     /*
     if (ego->getID() == "disabled" || gDebugFlag1) {
@@ -386,7 +386,7 @@ MSCriticalFollowerDistanceInfo::clear() {
 std::string
 MSCriticalFollowerDistanceInfo::toString() const {
     std::ostringstream oss;
-    oss.setf(std::ios::fixed , std::ios::floatfield);
+    oss.setf(std::ios::fixed, std::ios::floatfield);
     oss << std::setprecision(2);
     for (int i = 0; i < (int)myVehicles.size(); ++i) {
         oss << Named::getIDSecure(myVehicles[i]) << ":";
@@ -402,5 +402,6 @@ MSCriticalFollowerDistanceInfo::toString() const {
     oss << " free=" << myFreeSublanes;
     return oss.str();
 }
-/****************************************************************************/
 
+
+/****************************************************************************/

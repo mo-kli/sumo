@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice.h
 /// @author  Michael Behrisch
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @date    Tue, 04 Dec 2007
-/// @version $Id$
 ///
 // Abstract in-vehicle device
 /****************************************************************************/
-#ifndef MSDevice_h
-#define MSDevice_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -31,6 +28,7 @@
 #include <set>
 #include <random>
 #include <microsim/MSMoveReminder.h>
+#include <microsim/MSVehicleType.h>
 #include <microsim/MSVehicleControl.h>
 #include <utils/common/Named.h>
 #include <utils/common/StringUtils.h>
@@ -46,7 +44,7 @@ class SUMOVehicle;
 class MSTransportable;
 class SUMOSAXAttributes;
 class MSVehicleDevice;
-class MSPersonDevice;
+class MSTransportableDevice;
 
 
 // ===========================================================================
@@ -85,7 +83,7 @@ public:
     * @param[in] p The person for which a device may be built
     * @param[filled] into The vector to store the built device in
     */
-    static void buildPersonDevices(MSTransportable& p, std::vector<MSPersonDevice*>& into);
+    static void buildTransportableDevices(MSTransportable& p, std::vector<MSTransportableDevice*>& into);
 
     static std::mt19937* getEquipmentRNG() {
         return &myEquipmentRNG;
@@ -94,17 +92,12 @@ public:
     /// @brief return the name for this type of device
     virtual const std::string deviceName() const = 0;
 
-    /** @brief Determines whether a transportable should get a certain device
-     **/
-    static bool equippedByParameter(const MSTransportable* t, const std::string& deviceName, bool outputOptionSet);
-
     /// @brief perform cleanup for all devices
     static void cleanupAll();
 
 public:
     /** @brief Constructor
      *
-     * @param[in] holder The vehicle that holds this device
      * @param[in] id The ID of the device
      */
     MSDevice(const std::string& id) : Named(id) {
@@ -126,7 +119,7 @@ public:
      *
      * @exception IOError not yet implemented
      */
-    virtual void generateOutput() const {
+    virtual void generateOutput(OutputDevice* /*tripinfoOut*/) const {
     }
 
     /** @brief Saves the state of the device
@@ -165,7 +158,7 @@ protected:
      * @param[in] optionsTopic The options topic into which the options shall be added
      * @param[filled] oc The options container to add the options to
      */
-    static void insertDefaultAssignmentOptions(const std::string& deviceName, const std::string& optionsTopic, OptionsCont& oc, const bool isPerson=false);
+    static void insertDefaultAssignmentOptions(const std::string& deviceName, const std::string& optionsTopic, OptionsCont& oc, const bool isPerson = false);
 
 
     /** @brief Determines whether a vehicle should get a certain device
@@ -174,7 +167,7 @@ protected:
      * @param[in] deviceName The name of the device type
      * @param[in] v The vehicle to determine whether it shall be equipped or not
      */
-    template<class DEVICEHOLDER> 
+    template<class DEVICEHOLDER>
     static bool equippedByDefaultAssignmentOptions(const OptionsCont& oc, const std::string& deviceName, DEVICEHOLDER& v, bool outputOptionSet, const bool isPerson = false);
     /// @}
 
@@ -242,6 +235,11 @@ MSDevice::equippedByDefaultAssignmentOptions(const OptionsCont& oc, const std::s
         parameterGiven = true;
         haveByParameter = StringUtils::toBool(v.getVehicleType().getParameter().getParameter(key, "false"));
     }
+    //std::cout << " deviceName=" << deviceName << " holder=" << v.getID()
+    //    << " nameGiven=" << nameGiven << " haveByName=" << haveByName
+    //    << " parameterGiven=" << parameterGiven << " haveByParameter=" << haveByParameter
+    //    << " numberGiven=" << numberGiven << " haveByNumber=" << haveByNumber
+    //    << " outputOptionSet=" << outputOptionSet << "\n";
     if (haveByName) {
         return true;
     } else if (parameterGiven) {
@@ -252,8 +250,3 @@ MSDevice::equippedByDefaultAssignmentOptions(const OptionsCont& oc, const std::s
         return !nameGiven && outputOptionSet;
     }
 }
-
-
-#endif
-
-/****************************************************************************/

@@ -1,22 +1,26 @@
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    _person.py
 # @author  Jakob Erdmann
 # @date    2015-02-06
-# @version $Id$
 
 from __future__ import absolute_import
 import struct
 from .domain import Domain
 from .storage import Storage
 from . import constants as tc
+from . import _simulation as simulation
 
 
 _RETURN_VALUE_FUNC = {tc.TRACI_ID_LIST: Storage.readStringList,
@@ -25,6 +29,7 @@ _RETURN_VALUE_FUNC = {tc.TRACI_ID_LIST: Storage.readStringList,
                       tc.VAR_POSITION: lambda result: result.read("!dd"),
                       tc.VAR_POSITION3D: lambda result: result.read("!ddd"),
                       tc.VAR_ANGLE: Storage.readDouble,
+                      tc.VAR_SLOPE: Storage.readDouble,
                       tc.VAR_ROAD_ID: Storage.readString,
                       tc.VAR_TYPE: Storage.readString,
                       tc.VAR_ROUTE_ID: Storage.readString,
@@ -35,7 +40,7 @@ _RETURN_VALUE_FUNC = {tc.TRACI_ID_LIST: Storage.readStringList,
                       tc.VAR_WIDTH: Storage.readDouble,
                       tc.VAR_MINGAP: Storage.readDouble,
                       tc.VAR_NEXT_EDGE: Storage.readString,
-                      tc.VAR_STAGE: Storage.readInt,
+                      tc.VAR_STAGE: simulation._readStage,
                       tc.VAR_STAGES_REMAINING: Storage.readInt,
                       tc.VAR_VEHICLE: Storage.readString,
                       tc.VAR_EDGES: Storage.readStringList,
@@ -76,6 +81,13 @@ class PersonDomain(Domain):
         Returns the angle in degrees of the named person within the last step.
         """
         return self._getUniversal(tc.VAR_ANGLE, personID)
+
+    def getSlope(self, personID):
+        """getSlope(string) -> double
+
+        Returns the slope at the current position of the person in degrees
+        """
+        return self._getUniversal(tc.VAR_SLOPE, personID)
 
     def getRoadID(self, personID):
         """getRoadID(string) -> string
@@ -167,6 +179,8 @@ class PersonDomain(Domain):
           1 for waiting
           2 for walking
           3 for driving
+          4 for access to busStop or trainStop
+          5 for personTrip
         nextStageIndex 0 retrieves value for the current stage.
         nextStageIndex must be lower then value of getRemainingStages(personID)
         """
@@ -174,8 +188,8 @@ class PersonDomain(Domain):
             tc.CMD_GET_PERSON_VARIABLE, tc.VAR_STAGE, personID, 1 + 4)
         self._connection._string += struct.pack("!Bi",
                                                 tc.TYPE_INTEGER, nextStageIndex)
-        return self._connection._checkResult(tc.CMD_GET_PERSON_VARIABLE,
-                                             tc.VAR_STAGE, personID).readInt()
+        return simulation._readStage(self._connection._checkResult(tc.CMD_GET_PERSON_VARIABLE,
+                                                                   tc.VAR_STAGE, personID))
 
     def getRemainingStages(self, personID):
         """getStage(string) -> int
@@ -220,31 +234,27 @@ class PersonDomain(Domain):
         """appendWaitingStage(string, float, string, string)
         Appends a waiting stage with duration in s to the plan of the given person
         """
-        duration *= 1000
         self._connection._beginMessage(tc.CMD_SET_PERSON_VARIABLE, tc.APPEND_STAGE, personID,
                                        1 + 4 +  # compound
                                        1 + 4 +  # stage type
-                                       1 + 4 +  # duration
+                                       1 + 8 +  # duration
                                        1 + 4 + len(description) +
                                        1 + 4 + len(stopID))
         self._connection._string += struct.pack("!Bi", tc.TYPE_COMPOUND, 4)
         self._connection._string += struct.pack(
             "!Bi", tc.TYPE_INTEGER, tc.STAGE_WAITING)
-        self._connection._string += struct.pack("!Bi",
-                                                tc.TYPE_INTEGER, duration)
+        self._connection._string += struct.pack("!Bd",
+                                                tc.TYPE_DOUBLE, duration)
         self._connection._packString(description)
         self._connection._packString(stopID)
         self._connection._sendExact()
 
     def appendWalkingStage(self, personID, edges, arrivalPos, duration=-1, speed=-1, stopID=""):
-        """appendWalkingStage(string, stringList, double, int, double, string)
+        """appendWalkingStage(string, stringList, double, double, double, string)
         Appends a walking stage to the plan of the given person
         The walking speed can either be specified, computed from the duration parameter (in s) or taken from the
         type of the person
         """
-        if duration is not None:
-            duration *= 1000
-
         if isinstance(edges, str):
             edges = [edges]
         self._connection._beginMessage(tc.CMD_SET_PERSON_VARIABLE, tc.APPEND_STAGE, personID,
@@ -253,7 +263,7 @@ class PersonDomain(Domain):
                                        1 + 4 + \
                                        sum(map(len, edges)) + 4 * len(edges) +
                                        1 + 8 +  # arrivalPos
-                                       1 + 4 +  # duration
+                                       1 + 8 +  # duration
                                        1 + 8 +  # speed
                                        1 + 4 + len(stopID)
                                        )
@@ -263,10 +273,35 @@ class PersonDomain(Domain):
         self._connection._packStringList(edges)
         self._connection._string += struct.pack("!Bd",
                                                 tc.TYPE_DOUBLE, arrivalPos)
-        self._connection._string += struct.pack("!Bi",
-                                                tc.TYPE_INTEGER, duration)
+        self._connection._string += struct.pack("!Bd",
+                                                tc.TYPE_DOUBLE, duration)
         self._connection._string += struct.pack("!Bd", tc.TYPE_DOUBLE, speed)
         self._connection._packString(stopID)
+        self._connection._sendExact()
+
+    def appendStage(self, personID, stage):
+        """appendStage(string, stage)
+        Appends a stage object to the plan of the given person
+        Such an object is obtainable using getStage
+        """
+        self._connection._beginMessage(tc.CMD_SET_PERSON_VARIABLE, tc.APPEND_STAGE,
+                                       personID, simulation._stageSize(stage))
+        simulation._writeStage(stage, self._connection)
+        self._connection._sendExact()
+
+    def replaceStage(self, personID, stageIndex, stage):
+        """replaceStage(string, int, stage)
+        Replaces the nth subsequent stage with the given stage object
+        Such an object is obtainable using getStage
+        """
+        msgSize = (1 + 4  # compound
+                   + 1 + 4  # stageIndex
+                   + simulation._stageSize(stage))
+
+        self._connection._beginMessage(tc.CMD_SET_PERSON_VARIABLE, tc.REPLACE_STAGE, personID, msgSize)
+        self._connection._string += struct.pack("!Bi", tc.TYPE_COMPOUND, 2)
+        self._connection._string += struct.pack("!Bi", tc.TYPE_INTEGER, stageIndex)
+        simulation._writeStage(stage, self._connection)
         self._connection._sendExact()
 
     def appendDrivingStage(self, personID, toEdge, lines, stopID=""):
@@ -388,6 +423,3 @@ class PersonDomain(Domain):
         self._connection._string += struct.pack("!BBBBB", tc.TYPE_COLOR, int(color[0]), int(color[1]), int(color[2]),
                                                 int(color[3]) if len(color) > 3 else 255)
         self._connection._sendExact()
-
-
-PersonDomain()

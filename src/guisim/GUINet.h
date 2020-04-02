@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUINet.h
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Sept 2002
-/// @version $Id$
 ///
 // A MSNet extended by some values for usage within the gui
 /****************************************************************************/
-#ifndef GUINet_h
-#define GUINet_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -31,6 +28,8 @@
 #include <microsim/devices/MSDevice_Tripinfo.h>
 #include <utils/geom/Boundary.h>
 #include <utils/geom/Position.h>
+#include <utils/xml/SUMOSAXHandler.h>
+#include <utils/xml/SAXWeightsHandler.h>
 #include <foreign/rtree/SUMORTree.h>
 #include <foreign/rtree/LayeredRTree.h>
 #include <utils/geom/PositionVector.h>
@@ -50,6 +49,7 @@ class MSTrafficLightLogic;
 class MSLink;
 class GUIJunctionWrapper;
 class GUIDetectorWrapper;
+class GUICalibrator;
 class GUITrafficLightLogicWrapper;
 class RGBColor;
 class GUIEdge;
@@ -57,7 +57,6 @@ class OutputDevice;
 class GUIVehicle;
 class GUIVehicleControl;
 class MSVehicleControl;
-class MFXMutex;
 class GUIMEVehicleControl;
 
 
@@ -100,6 +99,13 @@ public:
     ~GUINet();
 
 
+    /**
+     * @brief Returns whether this is a GUI Net
+     */
+    bool isGUINet() const override {
+        return true;
+    }
+
 
     /// @name inherited from GUIGlObject
     //@{
@@ -111,8 +117,7 @@ public:
      * @return The built popup-menu
      * @see GUIGlObject::getPopUpMenu
      */
-    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app,
-                                       GUISUMOAbstractView& parent);
+    GUIGLObjectPopupMenu* getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
 
     /** @brief Returns an own parameter window
@@ -122,8 +127,7 @@ public:
      * @return The built parameter window
      * @see GUIGlObject::getParameterWindow
      */
-    GUIParameterTableWindow* getParameterWindow(
-        GUIMainWindow& app, GUISUMOAbstractView& parent);
+    GUIParameterTableWindow* getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView& parent) override;
 
 
     /** @brief Returns the boundary to which the view shall be centered in order to show the object
@@ -131,14 +135,14 @@ public:
      * @return The boundary the object is within
      * @see GUIGlObject::getCenteringBoundary
      */
-    Boundary getCenteringBoundary() const;
+    Boundary getCenteringBoundary() const override;
 
 
     /** @brief Draws the object
      * @param[in] s The settings for the current view (may influence drawing)
      * @see GUIGlObject::drawGL
      */
-    void drawGL(const GUIVisualizationSettings& s) const;
+    void drawGL(const GUIVisualizationSettings& s) const override;
     //@}
 
 
@@ -237,7 +241,7 @@ public:
      * @see MSPersonControl
      * @see myPersonControl
      */
-    MSTransportableControl& getPersonControl();
+    MSTransportableControl& getPersonControl() override;
 
 
     /** @brief Returns the container control
@@ -248,7 +252,7 @@ public:
      * @see MSContainerControl
      * @see myContainerControl
      */
-    MSTransportableControl& getContainerControl();
+    MSTransportableControl& getContainerControl() override;
 
 
     /** Returns the gl-id of the traffic light that controls the given link
@@ -306,6 +310,16 @@ public:
      */
     GUIMEVehicleControl* getGUIMEVehicleControl();
 
+    /// @brief retrieve loaded edged weight for the given attribute and the current simulation time
+    double getEdgeData(const MSEdge* edge, const std::string& attr);
+
+    /// @brief load edgeData from file
+    bool loadEdgeData(const std::string& file);
+
+
+    /// @brief return list of loaded edgeData attributes
+    std::vector<std::string> getEdgeDataAttrs() const;
+
 #ifdef HAVE_OSG
     void updateColor(const GUIVisualizationSettings& s);
 #endif
@@ -323,8 +337,10 @@ public:
     static GUINet* getGUIInstance();
 
     /// @brief creates a wrapper for the given logic
-    void createTLWrapper(MSTrafficLightLogic* tll);
+    void createTLWrapper(MSTrafficLightLogic* tll) override;
 
+    /// @brief return wheter the given logic (or rather it's wrapper) is selected in the GUI
+    bool isSelected(const MSTrafficLightLogic* tll) const override;
 
 private:
     /// @brief Initialises the tl-logic map and wrappers
@@ -345,12 +361,11 @@ protected:
     /// @brief Wrapped MS-junctions
     std::vector<GUIJunctionWrapper*> myJunctionWrapper;
 
-    /// @brief Wrapped TL-Logics
-    std::vector<MSTrafficLightLogic*> myTLLogicWrapper;
-
     /// @brief A detector dictionary
     std::vector<GUIDetectorWrapper*> myDetectorWrapper;
 
+    /// @brief A calibrator dictionary
+    std::vector<GUICalibrator*> myCalibratorWrapper;
 
     /// @brief Definition of a link-to-logic-id map
     typedef std::map<MSLink*, std::string> Links2LogicMap;
@@ -370,14 +385,49 @@ protected:
     long myLastVehicleMovementCount, myOverallVehicleCount;
     long myOverallSimDuration;
 
+    /// @brief loaded edge data for visualization
+    std::map<std::string, MSEdgeWeightsStorage*> myLoadedEdgeData;
+
+    /// @brief class for discovering edge attributes
+    class DiscoverAttributes : public SUMOSAXHandler {
+    public:
+        DiscoverAttributes(const std::string& file):
+            SUMOSAXHandler(file), lastIntervalEnd(0) {};
+        ~DiscoverAttributes() {};
+        void myStartElement(int element, const SUMOSAXAttributes& attrs);
+        std::vector<std::string> getEdgeAttrs();
+        SUMOTime lastIntervalEnd;
+    private:
+        std::set<std::string> edgeAttrs;
+    };
+
+    class EdgeFloatTimeLineRetriever_GUI : public SAXWeightsHandler::EdgeFloatTimeLineRetriever {
+    public:
+        /// @brief Constructor
+        EdgeFloatTimeLineRetriever_GUI(MSEdgeWeightsStorage* weightStorage) : myWeightStorage(weightStorage) {}
+
+        /// @brief Destructor
+        ~EdgeFloatTimeLineRetriever_GUI() { }
+
+        /** @brief Adds an effort for a given edge and time period
+         *
+         * @param[in] id The id of the object to add a weight for
+         * @param[in] val The effort
+         * @param[in] beg The begin of the interval the weight is valid for
+         * @param[in] end The end of the interval the weight is valid for
+         * @see SAXWeightsHandler::EdgeFloatTimeLineRetriever::addEdgeWeight
+         */
+        void addEdgeWeight(const std::string& id, double val, double beg, double end) const;
+        void addEdgeRelWeight(const std::string& from, const std::string& to, double val, double beg, double end) const; 
+
+    private:
+        /// @brief The storage that  edges shall be added to
+        MSEdgeWeightsStorage* myWeightStorage;
+
+    };
+
 private:
     /// The mutex used to avoid concurrent updates of the vehicle buffer
-    mutable MFXMutex myLock;
+    mutable FXMutex myLock;
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

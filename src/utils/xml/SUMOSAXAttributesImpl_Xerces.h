@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    SUMOSAXAttributesImpl_Xerces.h
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Fri, 30 Mar 2007
-/// @version $Id$
 ///
 // Encapsulated Xerces-SAX-attributes
 /****************************************************************************/
-#ifndef SUMOSAXAttributesImpl_Xerces_h
-#define SUMOSAXAttributesImpl_Xerces_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -232,7 +229,10 @@ public:
     SumoXMLNodeType getNodeType(bool& ok) const;
 
     /// @brief returns rightOfWay method
-    RightOfWay getRightOfWay(bool& ok) const; 
+    RightOfWay getRightOfWay(bool& ok) const;
+
+    /// @brief returns fringe type
+    FringeType getFringeType(bool& ok) const;
 
     /**
      * @brief Returns the value of the named attribute
@@ -258,13 +258,6 @@ public:
      */
     Boundary getBoundary(int attr) const;
 
-    /** @brief Tries to read given attribute assuming it is a string vector
-     *
-     * @param[in] attr The id of the attribute to read
-     * @return The read value if given and not empty; empty vector if an error occurred
-     */
-    std::vector<std::string> getStringVector(int attr) const;
-
     /** @brief Converts the given attribute id into a man readable string
      *
      * Returns a "?" if the attribute is not known.
@@ -280,6 +273,10 @@ public:
      * @param[in] os The stream to use
      */
     void serialize(std::ostream& os) const;
+
+    /** @brief Retrieves all attribute names
+     */
+    std::vector<std::string> getAttributeNames() const;
 
     /// @brief return a new deep-copy attributes object
     SUMOSAXAttributes* clone() const;
@@ -316,9 +313,3 @@ private:
 
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

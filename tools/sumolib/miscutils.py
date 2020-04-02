@@ -1,16 +1,19 @@
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    miscutils.py
 # @author  Jakob Erdmann
 # @author  Michael Behrisch
 # @date    2012-05-08
-# @version $Id$
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -254,18 +257,48 @@ class working_dir:
 
 
 class Colorgen:
+    DISTINCT = [
+        (0.17, 1.0, 0.5),
+        (0.0, 0.9, 1.0),
+        (0.35, 0.67, 0.71),
+        (0.14, 0.9, 1.0),
+        (0.56, 1.0, 0.78),
+        (0.07, 0.8, 0.96),
+        (0.79, 0.83, 0.71),
+        (0.5, 0.71, 0.94),
+        (0.84, 0.79, 0.94),
+        (0.2, 0.76, 0.96),
+        (0.0, 0.24, 0.98),
+        (0.5, 1.0, 0.5),
+        (0.77, 0.25, 1.0),
+        (0.09, 0.76, 0.67),
+        (0.15, 0.22, 1.0),
+        (0.0, 1.0, 0.5),
+        (0.38, 0.33, 1.0),
+        (0.67, 1.0, 0.5),
+    ]
 
-    def __init__(self, hsv):
+    def __init__(self, hsv, cycleLength=10.67):
         self.hsv = hsv
-        self.cycle = [random.randint(0, 255) for x in self.hsv]
+        self.cycle = [int(random.random() * 256) for x in self.hsv]
+        self.cycleOffset = int(round(256 / cycleLength))
+        self.distinctIndex = 0
 
     def get_value(self, opt, index):
         if opt == 'random':
             return random.random()
         elif opt == 'cycle':
             # the 255 below is intentional to get all color values when cycling long enough
-            self.cycle[index] = (self.cycle[index] + 24) % 255
+            self.cycle[index] = (self.cycle[index] + self.cycleOffset) % 255
             return self.cycle[index] / 255.0
+        elif opt == 'cycle':
+            # the 255 below is intentional to get all color values when cycling long enough
+            self.cycle[index] = (self.cycle[index] + self.cycleOffset) % 255
+            return self.cycle[index] / 255.0
+        elif opt == 'distinct':
+            if index == 0:
+                self.distinctIndex = (self.distinctIndex + 1) % len(self.DISTINCT)
+            return self.DISTINCT[self.distinctIndex][index]
         else:
             return float(opt)
 
@@ -308,11 +341,27 @@ def euclidean(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
+def humanReadableTime(seconds):
+    result = ""
+    ds = 3600 * 24
+    if seconds > ds:
+        result = "%s:" % int(seconds / ds)
+        seconds = seconds % ds
+    result += "%02i:" % int(seconds / 3600)
+    seconds = seconds % 3600
+    result += "%02i:" % int(seconds / 60)
+    seconds = seconds % 60
+    if seconds == int(seconds):
+        seconds = int(seconds)
+    result += "%02i" % seconds
+    return result
+
+
 def parseTime(t):
     try:
         return float(t)
     except ValueError:
         pass
     # prepended zero is ignored if the date value already contains days
-    days, hours, minutes, seconds = ([0] + map(float, t.split(':')))[-4:]
+    days, hours, minutes, seconds = ([0] + list(map(float, t.split(':'))))[-4:]
     return 3600 * 24 * days + 3600 * hours + 60 * minutes + seconds

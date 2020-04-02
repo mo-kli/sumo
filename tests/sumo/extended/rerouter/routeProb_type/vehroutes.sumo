@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on Mon Jul  2 09:05:36 2018 by Eclipse SUMO Version 32548ca
+<!-- generated on Thu Nov 21 13:53:21 2019 by Eclipse SUMO Version v1_3_1+0960-7b06a594ed
 This data file and the accompanying materials
 are made available under the terms of the Eclipse Public License v2.0
 which accompanies this distribution, and is available at
@@ -23,6 +23,10 @@ SPDX-License-Identifier: EPL-2.0
         <begin value="0"/>
     </time>
 
+    <processing>
+        <default.speeddev value="0"/>
+    </processing>
+
     <report>
         <xml-validation value="never"/>
         <duration-log.disable value="true"/>
@@ -39,13 +43,6 @@ SPDX-License-Identifier: EPL-2.0
 
     <vehicle id="noReroute.1" type="noReroute" depart="10.00" arrival="105.00">
         <route edges="beg middle end rend"/>
-    </vehicle>
-
-    <vehicle id="canReroute.1" type="canReroute" depart="15.00" arrival="110.00">
-        <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="15.00" probability="0" edges="beg middle end rend"/>
-            <route edges="beg middle end rend"/>
-        </routeDistribution>
     </vehicle>
 
     <vehicle id="noReroute.2" type="noReroute" depart="20.00" arrival="115.00">
@@ -67,15 +64,15 @@ SPDX-License-Identifier: EPL-2.0
         <route edges="beg middle end rend"/>
     </vehicle>
 
-    <vehicle id="canReroute.4" type="canReroute" depart="45.00" arrival="140.00">
-        <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="45.00" probability="0" edges="beg middle end rend"/>
-            <route edges="beg middle end rend"/>
-        </routeDistribution>
-    </vehicle>
-
     <vehicle id="noReroute.5" type="noReroute" depart="50.00" arrival="145.00">
         <route edges="beg middle end rend"/>
+    </vehicle>
+
+    <vehicle id="canReroute.5" type="canReroute" depart="55.00" arrival="150.00">
+        <routeDistribution>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="55.00" probability="0" edges="beg middle end rend"/>
+            <route edges="beg middle end rend"/>
+        </routeDistribution>
     </vehicle>
 
     <vehicle id="noReroute.6" type="noReroute" depart="60.00" arrival="155.00">
@@ -86,26 +83,19 @@ SPDX-License-Identifier: EPL-2.0
         <route edges="beg middle end rend"/>
     </vehicle>
 
+    <vehicle id="canReroute.7" type="canReroute" depart="75.00" arrival="170.00">
+        <routeDistribution>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="75.00" probability="0" edges="beg middle end rend"/>
+            <route edges="beg middle end rend"/>
+        </routeDistribution>
+    </vehicle>
+
     <vehicle id="noReroute.8" type="noReroute" depart="80.00" arrival="175.00">
         <route edges="beg middle end rend"/>
     </vehicle>
 
-    <vehicle id="canReroute.8" type="canReroute" depart="85.00" arrival="180.00">
-        <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="85.00" probability="0" edges="beg middle end rend"/>
-            <route edges="beg middle end rend"/>
-        </routeDistribution>
-    </vehicle>
-
     <vehicle id="noReroute.9" type="noReroute" depart="90.00" arrival="185.00">
         <route edges="beg middle end rend"/>
-    </vehicle>
-
-    <vehicle id="canReroute.9" type="canReroute" depart="95.00" arrival="190.00">
-        <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="95.00" probability="0" edges="beg middle end rend"/>
-            <route edges="beg middle end rend"/>
-        </routeDistribution>
     </vehicle>
 
     <vehicle id="canReroute.0" type="canReroute" depart="5.00" arrival="212.00">
@@ -115,17 +105,24 @@ SPDX-License-Identifier: EPL-2.0
         </routeDistribution>
     </vehicle>
 
-    <vehicle id="canReroute.3" type="canReroute" depart="35.00" arrival="242.00">
+    <vehicle id="canReroute.1" type="canReroute" depart="15.00" arrival="222.00">
         <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="35.00" probability="0" edges="beg middle end rend"/>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="15.00" probability="0" edges="beg middle end rend"/>
             <route edges="beg beg2right right right2end end rend"/>
         </routeDistribution>
     </vehicle>
 
-    <vehicle id="canReroute.5" type="canReroute" depart="55.00" arrival="262.00">
+    <vehicle id="canReroute.3" type="canReroute" depart="35.00" arrival="244.00">
         <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="55.00" probability="0" edges="beg middle end rend"/>
-            <route edges="beg beg2right right right2end end rend"/>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="35.00" probability="0" edges="beg middle end rend"/>
+            <route edges="beg beg2left left left2end end rend"/>
+        </routeDistribution>
+    </vehicle>
+
+    <vehicle id="canReroute.4" type="canReroute" depart="45.00" arrival="254.00">
+        <routeDistribution>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="45.00" probability="0" edges="beg middle end rend"/>
+            <route edges="beg beg2left left left2end end rend"/>
         </routeDistribution>
     </vehicle>
 
@@ -136,9 +133,16 @@ SPDX-License-Identifier: EPL-2.0
         </routeDistribution>
     </vehicle>
 
-    <vehicle id="canReroute.7" type="canReroute" depart="75.00" arrival="282.00">
+    <vehicle id="canReroute.8" type="canReroute" depart="85.00" arrival="294.00">
         <routeDistribution>
-            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="75.00" probability="0" edges="beg middle end rend"/>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="85.00" probability="0" edges="beg middle end rend"/>
+            <route edges="beg beg2left left left2end end rend"/>
+        </routeDistribution>
+    </vehicle>
+
+    <vehicle id="canReroute.9" type="canReroute" depart="95.00" arrival="302.00">
+        <routeDistribution>
+            <route replacedOnEdge="beg" reason="rerouter" replacedAtTime="95.00" probability="0" edges="beg middle end rend"/>
             <route edges="beg beg2right right right2end end rend"/>
         </routeDistribution>
     </vehicle>

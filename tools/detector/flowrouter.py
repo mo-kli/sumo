@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    flowrouter.py
 # @author  Michael Behrisch
 # @author  Daniel Krajzewicz
 # @date    2007-06-28
-# @version $Id$
 
 """
 This script does flow routing similar to the dfrouter.
@@ -165,11 +168,11 @@ class Net:
         if options.restrictionfile:
             for f in options.restrictionfile.split(","):
                 for line in open(f):
-                    l = line.split()
-                    if len(l) == 2:
-                        self._edgeRestriction[l[1]] = int(l[0])
+                    ls = line.split()
+                    if len(ls) == 2:
+                        self._edgeRestriction[ls[1]] = int(ls[0])
                     else:
-                        self._routeRestriction[tuple(l[1:])] = int(l[0])
+                        self._routeRestriction[tuple(ls[1:])] = int(ls[0])
             if options.verbose:
                 print("Loaded %s edge restrictions and %s route restrictions" %
                       (len(self._edgeRestriction), len(self._routeRestriction)))
@@ -203,7 +206,7 @@ class Net:
         edgeObj.target.inEdges.remove(edgeObj)
         if edgeObj.kind == "real":
             del self._edges[edgeObj.label]
-            checkEdges = edgeObj.source.inEdges.union(edgeObj.target.outEdges)
+            checkEdges = set(edgeObj.source.inEdges).union(edgeObj.target.outEdges)
             for edge in checkEdges:
                 if edge.kind != "real":
                     self.removeEdge(edge)
@@ -265,8 +268,10 @@ class Net:
             if len(sinks) == 0 and (len(edgeObj.target.outEdges) == 0 or edgeObj in self._possibleSinks):
                 if edgeObj.numLanes > 0:
                     if edgeObj.label in foundSources:
-                        print("Error! Edge '%s' is simultaneously source and sink." % edgeObj.label)
-                        return False
+                        print("Warning! Edge '%s' is simultaneously source and sink." % edgeObj.label)
+                        self.removeEdge(edgeObj)
+                        foundSources.remove(edgeObj.label)
+                        continue
                     self.addSinkEdge(edgeObj)
                     foundSinks.append(edgeObj.label)
         if options.verbose:
@@ -753,8 +758,8 @@ class Net:
                            int(route.frequency), begin, end, via), file=emitOut)
 
         if options.verbose:
-            print("Writing %s vehicles from %s sources between time %s and %s" % (
-                totalFlow, numSources, begin, end))
+            print("Writing %s vehicles from %s sources between time %s and %s (minutes)" % (
+                totalFlow, numSources, int(begin / 60), int(end / 60)))
             if len(unusedSources) > 0:
                 print("  unused sources:", " ".join(unusedSources))
 

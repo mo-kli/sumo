@@ -1,22 +1,27 @@
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    xml.py
 # @author  Michael Behrisch
 # @author  Jakob Erdmann
 # @date    2011-06-23
-# @version $Id$
 
 from __future__ import print_function
 from __future__ import absolute_import
+import os
 import sys
 import re
+import gzip
 import datetime
 try:
     import xml.etree.cElementTree as ET
@@ -27,6 +32,38 @@ from collections import namedtuple, OrderedDict
 from keyword import iskeyword
 from functools import reduce
 import xml.sax.saxutils
+
+from . import version
+
+DEFAULT_ATTR_CONVERSIONS = {
+    # shape-like
+    'shape': lambda coords: map(lambda xy: map(float, xy.split(',')), coords.split()),
+    # float
+    'speed': float,
+    'length': float,
+    'width': float,
+    'angle': float,
+    'endOffset': float,
+    'radius': float,
+    'contPos': float,
+    'visibility': float,
+    'startPos': float,
+    'endPos': float,
+    'position': float,
+    'x': float,
+    'y': float,
+    'lon': float,
+    'lat': float,
+    'freq': float,
+    # int
+    'priority': int,
+    'numLanes': int,
+    'index': int,
+    'linkIndex': int,
+    'linkIndex2': int,
+    'fromLane': int,
+    'toLane': int,
+}
 
 
 def _prefix_keyword(name, warn=False):
@@ -61,12 +98,13 @@ def compound_object(element_name, attrnames, warn=False):
         _original_fields = sorted(attrnames)
         _fields = [_prefix_keyword(a, warn) for a in _original_fields]
 
-        def __init__(self, values, child_dict, text=None):
+        def __init__(self, values, child_dict=None, text=None, child_list=None):
             for name, val in zip(self._fields, values):
                 self.__dict__[name] = val
-            self._child_dict = child_dict
+            self._child_dict = child_dict if child_dict else {}
             self.name = element_name
             self._text = text
+            self._child_list = child_list if child_list else []
 
         def getAttributes(self):
             return [(k, getattr(self, k)) for k in self._fields]
@@ -95,11 +133,24 @@ def compound_object(element_name, attrnames, warn=False):
             if attrs is None:
                 attrs = {}
             clazz = compound_object(name, attrs.keys())
-            child = clazz([attrs.get(a) for a in sorted(attrs.keys())], _NO_CHILDREN)
-            if len(self._child_dict) == 0:
-                self._child_dict = OrderedDict()
+            child = clazz([attrs.get(a) for a in sorted(attrs.keys())])
             self._child_dict.setdefault(name, []).append(child)
+            self._child_list.append(child)
             return child
+
+        def removeChild(self, child):
+            self._child_dict[child.name].remove(child)
+            self._child_list.remove(child)
+
+        def setChildList(self, childs):
+            for c in self._child_list:
+                self._child_dict[c.name].remove(c)
+            for c in childs:
+                self._child_dict.setdefault(c.name, []).append(c)
+            self._child_list = childs
+
+        def getChildList(self):
+            return self._child_list
 
         def getText(self):
             return self._text
@@ -114,12 +165,19 @@ def compound_object(element_name, attrnames, warn=False):
 
         def __setattr__(self, name, value):
             if name != "_child_dict" and name in self._child_dict:
+                # this could be optimized by using the child_list only if there are different children
+                for c in self._child_dict[name]:
+                    self._child_list.remove(c)
                 self._child_dict[name] = value
+                for c in value:
+                    self._child_list.append(c)
             else:
                 self.__dict__[name] = value
 
         def __delattr__(self, name):
             if name in self._child_dict:
+                for c in self._child_dict[name]:
+                    self._child_list.remove(c)
                 del self._child_dict[name]
             else:
                 if name in self.__dict__:
@@ -140,16 +198,14 @@ def compound_object(element_name, attrnames, warn=False):
                       # see #3454
                       '{' not in self._original_fields[i]]
             if not self._child_dict and self._text is None:
-                return "%s<%s %s/>\n" % (initialIndent, element_name, " ".join(fields))
+                return "%s<%s %s/>\n" % (initialIndent, self.name, " ".join(fields))
             else:
-                s = "%s<%s %s>\n" % (
-                    initialIndent, element_name, " ".join(fields))
-                for l in self._child_dict.values():
-                    for c in l:
-                        s += c.toXML(initialIndent + indent)
+                s = "%s<%s %s>\n" % (initialIndent, self.name, " ".join(fields))
+                for c in self._child_list:
+                    s += c.toXML(initialIndent + indent)
                 if self._text is not None:
                     s += self._text.strip()
-                return s + "%s</%s>\n" % (initialIndent, element_name)
+                return s + "%s</%s>\n" % (initialIndent, self.name)
 
         def __repr__(self):
             return str(self)
@@ -184,7 +240,7 @@ def parse(xmlfile, element_names, element_attrs={}, attr_conversions={},
     exists (i.e. o.child_element_name = [osub0, osub1, ...])
     @Note: All elements with the same name must have the same type regardless of
     the subtree in which they occur (heterogeneous cases may be handled by
-    setting heterogeneous=False (with reduced parsing speed)
+    setting heterogeneous=True (with reduced parsing speed)
     @Note: Attribute names may be modified to avoid name clashes
     with python keywords. (set warn=True to receive renaming warnings)
     @Note: The element_names may be either a single string or a list of strings.
@@ -193,15 +249,12 @@ def parse(xmlfile, element_names, element_attrs={}, attr_conversions={},
     if isinstance(element_names, str):
         element_names = [element_names]
     elementTypes = {}
-    for event, parsenode in ET.iterparse(xmlfile):
+    for _, parsenode in ET.iterparse(_open(xmlfile)):
         if parsenode.tag in element_names:
             yield _get_compound_object(parsenode, elementTypes,
                                        parsenode.tag, element_attrs,
                                        attr_conversions, heterogeneous, warn)
             parsenode.clear()
-
-
-_NO_CHILDREN = {}
 
 
 def _IDENTITY(x):
@@ -219,17 +272,17 @@ def _get_compound_object(node, elementTypes, element_name, element_attrs, attr_c
         elementTypes[element_name] = compound_object(
             element_name, attrnames, warn)
     # prepare children
-    child_dict = _NO_CHILDREN  # conserve space by reusing singleton
+    child_dict = {}
+    child_list = []
     if len(node) > 0:
-        child_dict = OrderedDict()
         for c in node:
-            child_dict.setdefault(c.tag, []).append(_get_compound_object(
-                c, elementTypes, c.tag, element_attrs, attr_conversions,
-                heterogeneous, warn))
+            child = _get_compound_object(c, elementTypes, c.tag, element_attrs, attr_conversions, heterogeneous, warn)
+            child_dict.setdefault(c.tag, []).append(child)
+            child_list.append(child)
     attrnames = elementTypes[element_name]._original_fields
     return elementTypes[element_name](
         [attr_conversions.get(a, _IDENTITY)(node.get(a)) for a in attrnames],
-        child_dict, node.text)
+        child_dict, node.text, child_list)
 
 
 def create_document(root_element_name, attrs=None, schema=None):
@@ -270,6 +323,12 @@ def _createRecordAndPattern(element_name, attrnames, warn, optional):
     return Record, reprog
 
 
+def _open(xmlfile):
+    if isinstance(xmlfile, str):
+        return gzip.open(xmlfile, "rt") if xmlfile.endswith(".gz") else open(xmlfile)
+    return xmlfile
+
+
 def parse_fast(xmlfile, element_name, attrnames, warn=False, optional=False):
     """
     Parses the given attrnames from all elements with element_name
@@ -278,7 +337,7 @@ def parse_fast(xmlfile, element_name, attrnames, warn=False, optional=False):
     @Example: parse_fast('plain.edg.xml', 'edge', ['id', 'speed'])
     """
     Record, reprog = _createRecordAndPattern(element_name, attrnames, warn, optional)
-    for line in open(xmlfile):
+    for line in _open(xmlfile):
         m = reprog.search(line)
         if m:
             if optional:
@@ -298,7 +357,7 @@ def parse_fast_nested(xmlfile, element_name, attrnames, element_name2, attrnames
     Record, reprog = _createRecordAndPattern(element_name, attrnames, warn, optional)
     Record2, reprog2 = _createRecordAndPattern(element_name2, attrnames2, warn, optional)
     record = None
-    for line in open(xmlfile):
+    for line in _open(xmlfile):
         m2 = reprog2.search(line)
         if m2:
             if optional:
@@ -314,7 +373,8 @@ def parse_fast_nested(xmlfile, element_name, attrnames, element_name2, attrnames
                     record = Record(*m.groups())
 
 
-def writeHeader(outf, script, root=None, schemaPath=None):
+def writeHeader(outf, script=None, root=None, schemaPath=None):
+    script = os.path.basename(sys.argv[0]) + " " + version.gitDescribe()
     outf.write("""<?xml version="1.0" encoding="UTF-8"?>
 <!-- generated on %s by %s
   options: %s

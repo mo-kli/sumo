@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    NBContHelper.h
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Mon, 17 Dec 2001
-/// @version $Id$
 ///
 // Some methods for traversing lists of edges
 /****************************************************************************/
-#ifndef NBContHelper_h
-#define NBContHelper_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <vector>
@@ -77,45 +74,17 @@ public:
     class relative_outgoing_edge_sorter {
     public:
         /// constructor
-        explicit relative_outgoing_edge_sorter(NBEdge* e) : myEdge(e) {}
-
-    public:
-        /// comparing operation
-        int operator()(NBEdge* e1, NBEdge* e2) const;
-
-    private:
-        /// the edge to compute the relative angle of
-        NBEdge* myEdge;
-    };
-
-
-    /**
-     * straightness_sorter
-     * Class to sort edges according to how straight they are in relation to the
-     * reference edge at the given node
-     */
-    class straightness_sorter {
-    public:
+        explicit relative_outgoing_edge_sorter(NBEdge* e) : myAngle(e->getEndAngle()) {}
         /// constructor
-        explicit straightness_sorter(const NBNode* n, const NBEdge* e):
-            myRefIncoming(e->getToNode() == n) {
-            if (myRefIncoming) {
-                myReferencePos = e->getLaneShape(0).back();
-                myReferenceAngle = e->getShapeEndAngle();
-            } else {
-                myReferencePos = e->getLaneShape(0).front();
-                myReferenceAngle = e->getShapeStartAngle();
-            }
-        }
+        explicit relative_outgoing_edge_sorter(double angle) : myAngle(angle) {}
 
     public:
         /// comparing operation
-        int operator()(NBEdge* e1, NBEdge* e2) const;
+        bool operator()(const NBEdge* e1, const NBEdge* e2) const;
 
     private:
-        bool myRefIncoming;
-        Position myReferencePos;
-        double myReferenceAngle;
+        /// @brief the reference angle to compare edges agains
+        double myAngle;
     };
 
 
@@ -129,15 +98,17 @@ public:
     class relative_incoming_edge_sorter {
     public:
         /// constructor
-        explicit relative_incoming_edge_sorter(NBEdge* e) : myEdge(e) {}
+        explicit relative_incoming_edge_sorter(NBEdge* e) : myAngle(e->getStartAngle()) {}
+        /// constructor
+        explicit relative_incoming_edge_sorter(double angle) : myAngle(angle) {}
 
     public:
         /// comparing operation
-        int operator()(NBEdge* e1, NBEdge* e2) const;
+        bool operator()(const NBEdge* e1, const NBEdge* e2) const;
 
     private:
-        /// the edge to compute the relative angle of
-        NBEdge* myEdge;
+        /// @brief the reference angle to compare edges agains
+        double myAngle;
     };
 
 
@@ -243,23 +214,46 @@ public:
      * edge_similar_direction_sorter
      * Class to sort edges by their angle in relation to the given edge
      * The resulting list should have the edge in the most similar direction
-     * to the given edge as her first entry
+     * to the given edge as its first entry
      */
     class edge_similar_direction_sorter {
     public:
         /// constructor
-        explicit edge_similar_direction_sorter(const NBEdge* const e)
-            : myAngle(e->getTotalAngle()) {}
+        explicit edge_similar_direction_sorter(const NBEdge* const e, bool outgoing=true) : 
+            myCompareOutgoing(outgoing),
+            myAngle(outgoing ? e->getShapeEndAngle() : e->getShapeStartAngle())
+        {}
 
         /// comparing operation
-        int operator()(NBEdge* e1, NBEdge* e2) const {
-            double d1 = GeomHelper::getMinAngleDiff(e1->getTotalAngle(), myAngle);
-            double d2 = GeomHelper::getMinAngleDiff(e2->getTotalAngle(), myAngle);
-            return d1 < d2;
+        int operator()(const NBEdge* e1, const NBEdge* e2) const {
+            const double d1 = angleDiff(myCompareOutgoing ? e1->getShapeStartAngle() : e1->getShapeEndAngle(), myAngle);
+            const double d2 = angleDiff(myCompareOutgoing ? e2->getShapeStartAngle() : e2->getShapeEndAngle(), myAngle);
+            if (fabs(fabs(d1) - fabs(d2)) < NUMERICAL_EPS) {
+                if (fabs(d1 - d2) > NUMERICAL_EPS) {
+                    return d1 < d2;
+                } else {
+                    return e1->getNumericalID() < e2->getNumericalID();
+                }
+            }
+            return fabs(d1) < fabs(d2);
         }
 
     private:
+        double angleDiff(const double angle1, const double angle2) const {
+            double d = angle2 - angle1;
+            while (d >= 180.) {
+                d -= 360.;
+            }
+            while (d < -180.) {
+                d += 360.;
+            }
+            return d;
+        }
+
+
+    private:
         /// the angle to find the edge with the opposite direction
+        bool myCompareOutgoing;
         double myAngle;
     };
 
@@ -410,7 +404,7 @@ public:
 
     public:
         /// comparing operation
-        int operator()(const NBEdge* e1, const NBEdge* e2) const;
+        bool operator()(const NBEdge* e1, const NBEdge* e2) const;
 
     private:
         /// the edge to compute the relative angle of
@@ -418,9 +412,3 @@ public:
     };
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

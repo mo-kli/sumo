@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    binary2plain.py
 # @author  Michael Behrisch
 # @date    2012-03-11
-# @version $Id$
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -47,7 +50,10 @@ def readByte(content):
     return read(content, "B")[0]
 
 
-def readInt(content):
+def readInt(content, withType=False):
+    if withType:
+        valType = readByte(content)
+        assert(valType == INTEGER)
     return read(content, "i")[0]
 
 
@@ -63,7 +69,7 @@ def readString(content):
 def readStringList(content):
     n = readInt(content)
     list = []
-    for i in range(n):
+    for _ in range(n):
         read(content, "B")  # type
         list.append(readString(content))
     return list
@@ -72,13 +78,10 @@ def readStringList(content):
 def readIntListList(content):
     n = readInt(content)
     list = []
-    for i in range(n):
+    for _ in range(n):
         read(content, "B")  # type
         n1 = readInt(content)
-        list.append([])
-        for j in range(n1):
-            read(content, "B")  # type
-            list[-1].append(readInt(content))
+        list.append([readInt(content, True) for __ in range(n1)])
     return list
 
 
@@ -123,10 +126,7 @@ def typedValueStr(content):
     elif valType == STRING:
         return readString(content)
     elif valType == LIST:
-        l = []
-        for i in range(readInt(content)):
-            l.append(typedValueStr(content))
-        return " ".join(l)
+        return " ".join([typedValueStr(content) for _ in range(readInt(content))])
     elif valType == EDGE:
         return edges[readInt(content)]
     elif valType == LANE:

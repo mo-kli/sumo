@@ -1,25 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2013-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    PollutantsInterface.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Michael Behrisch
 /// @date    Mon, 19.08.2013
-/// @version $Id$
 ///
 // Interface to capsulate different emission models
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <limits>
@@ -35,18 +33,21 @@
 // ===========================================================================
 // static definitions
 // ===========================================================================
+
 HelpersHBEFA PollutantsInterface::myHBEFA2Helper;
 HelpersHBEFA3 PollutantsInterface::myHBEFA3Helper;
 HelpersPHEMlight PollutantsInterface::myPHEMlightHelper;
 HelpersEnergy PollutantsInterface::myEnergyHelper;
-PollutantsInterface::Helper* PollutantsInterface::myHelpers[] = { &PollutantsInterface::myHBEFA2Helper, &PollutantsInterface::myHBEFA3Helper,
-                                                                  &PollutantsInterface::myPHEMlightHelper, &PollutantsInterface::myEnergyHelper
-                                                                };
-
+PollutantsInterface::Helper* PollutantsInterface::myHelpers[] = {
+    &PollutantsInterface::myHBEFA2Helper, &PollutantsInterface::myHBEFA3Helper,
+    &PollutantsInterface::myPHEMlightHelper, &PollutantsInterface::myEnergyHelper
+};
+std::vector<std::string> PollutantsInterface::myAllClassesStr;
 
 // ===========================================================================
 // method definitions
 // ===========================================================================
+
 SUMOEmissionClass
 PollutantsInterface::getClassByName(const std::string& eClass, const SUMOVehicleClass vc) {
     const std::string::size_type sep = eClass.find("/");
@@ -75,6 +76,23 @@ PollutantsInterface::getAllClasses() {
     return result;
 }
 
+
+const std::vector<std::string>&
+PollutantsInterface::getAllClassesStr() {
+    // first check if myAllClassesStr has to be filled
+    if (myAllClassesStr.empty()) {
+        // first obtain all emissionClasses
+        std::vector<SUMOEmissionClass> emissionClasses;
+        for (int i = 0; i < 3; i++) {
+            myHelpers[i]->addAllClassesInto(emissionClasses);
+        }
+        // now write all emissionClasses in myAllClassesStr
+        for (const auto& i : emissionClasses) {
+            myAllClassesStr.push_back(getName(i));
+        }
+    }
+    return myAllClassesStr;
+}
 
 std::string
 PollutantsInterface::getName(const SUMOEmissionClass c) {
@@ -154,4 +172,3 @@ PollutantsInterface::getModifiedAccel(const SUMOEmissionClass c, const double v,
 
 
 /****************************************************************************/
-

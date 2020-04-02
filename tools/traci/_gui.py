@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    _gui.py
 # @author  Michael Behrisch
 # @author  Daniel Krajzewicz
 # @date    2011-03-09
-# @version $Id$
 
 from __future__ import absolute_import
 import struct
@@ -23,7 +26,8 @@ _RETURN_VALUE_FUNC = {tc.VAR_VIEW_ZOOM: Storage.readDouble,
                       tc.VAR_VIEW_OFFSET: lambda result: result.read("!dd"),
                       tc.VAR_VIEW_SCHEMA: Storage.readString,
                       tc.VAR_VIEW_BOUNDARY: Storage.readShape,
-                      tc.VAR_HAS_VIEW: lambda result: bool(result.read("!i")[0])}
+                      tc.VAR_HAS_VIEW: lambda result: bool(result.read("!i")[0]),
+                      tc.VAR_TRACK_VEHICLE: Storage.readString}
 
 
 class GuiDomain(Domain):
@@ -91,8 +95,9 @@ class GuiDomain(Domain):
 
     def setBoundary(self, viewID, xmin, ymin, xmax, ymax):
         """setBoundary(string, double, double, double, double) -> None
-
-        Set the current boundary for the given view (see getBoundary()).
+        Sets the boundary of the visible network. If the window has a different
+        aspect ratio than the given boundary, the view is expanded along one
+        axis to meet the window aspect ratio and contain the given boundary.
         """
         self._connection._beginMessage(
             tc.CMD_SET_GUI_VARIABLE, tc.VAR_VIEW_BOUNDARY, viewID, 1 + 1 + 8 + 8 + 8 + 8)
@@ -130,5 +135,9 @@ class GuiDomain(Domain):
         """
         return self._getUniversal(tc.VAR_HAS_VIEW, viewID)
 
+    def getTrackedVehicle(self, viewID=DEFAULT_VIEW):
+        """getTrackedVehicle(string): -> string
 
-GuiDomain()
+        Returns the id of the currently tracked vehicle
+        """
+        return self._getUniversal(tc.VAR_TRACK_VEHICLE, viewID)

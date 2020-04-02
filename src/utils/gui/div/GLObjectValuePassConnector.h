@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GLObjectValuePassConnector.h
 /// @author  Daniel Krajzewicz
@@ -13,27 +17,20 @@
 /// @author  Sascha Krieg
 /// @author  Michael Behrisch
 /// @date    Fri, 29.04.2005
-/// @version $Id$
 ///
 // Class passing values from a GUIGlObject to another object
 /****************************************************************************/
-#ifndef GLObjectValuePassConnector_h
-#define GLObjectValuePassConnector_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <algorithm>
 #include <vector>
 #include <map>
 #include <functional>
+#include <fx.h>
 #include <utils/common/ValueSource.h>
 #include <utils/common/ValueRetriever.h>
 #include <utils/gui/globjects/GUIGlObject.h>
-#include <utils/foxtools/MFXMutex.h>
 
 
 // ===========================================================================
@@ -66,7 +63,7 @@ public:
      */
     GLObjectValuePassConnector(GUIGlObject& o, ValueSource<T>* source, ValueRetriever<T>* retriever)
         : myObject(o), mySource(source), myRetriever(retriever) { /*, myIsInvalid(false) */
-        AbstractMutex::ScopedLocker locker(myLock);
+        FXMutexLock locker(myLock);
         myContainer.push_back(this);
     }
 
@@ -89,7 +86,7 @@ public:
     /** @brief Updates all instances (passes values)
      */
     static void updateAll() {
-        AbstractMutex::ScopedLocker locker(myLock);
+        FXMutexLock locker(myLock);
         std::for_each(myContainer.begin(), myContainer.end(), std::mem_fun(&GLObjectValuePassConnector<T>::passValue));
     }
 
@@ -97,9 +94,9 @@ public:
     /** @brief Deletes all instances
      */
     static void clear() {
-        AbstractMutex::ScopedLocker locker(myLock);
+        FXMutexLock locker(myLock);
         while (!myContainer.empty()) {
-            delete(*myContainer.begin());
+            delete (*myContainer.begin());
         }
         myContainer.clear();
     }
@@ -111,7 +108,7 @@ public:
      * @param[in] o The object which shall no longer be asked for values
      */
     static void removeObject(GUIGlObject& o) {
-        AbstractMutex::ScopedLocker locker(myLock);
+        FXMutexLock locker(myLock);
         for (typename std::vector< GLObjectValuePassConnector<T>* >::iterator i = myContainer.begin(); i != myContainer.end();) {
             if ((*i)->myObject.getGlID() == o.getGlID()) {
                 i = myContainer.erase(i);
@@ -147,7 +144,7 @@ protected:
     ValueRetriever<T>* myRetriever;
 
     /// @brief The mutex used to avoid concurrent updates of the connectors container
-    static MFXMutex myLock;
+    static FXMutex myLock;
 
     /// @brief The container of items that shall be updated
     static std::vector< GLObjectValuePassConnector<T>* > myContainer;
@@ -167,10 +164,4 @@ private:
 template<typename T>
 std::vector< GLObjectValuePassConnector<T>* > GLObjectValuePassConnector<T>::myContainer;
 template<typename T>
-MFXMutex GLObjectValuePassConnector<T>::myLock;
-
-
-#endif
-
-/****************************************************************************/
-
+FXMutex GLObjectValuePassConnector<T>::myLock;

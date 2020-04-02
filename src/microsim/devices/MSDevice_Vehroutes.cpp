@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2009-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2009-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice_Vehroutes.cpp
 /// @author  Daniel Krajzewicz
@@ -13,14 +17,9 @@
 /// @author  Michael Behrisch
 /// @author  Jakob Erdmann
 /// @date    Fri, 30.01.2009
-/// @version $Id$
 ///
 // A device which collects info on the vehicle trip
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <microsim/MSGlobals.h>
@@ -30,6 +29,7 @@
 #include <microsim/MSRoute.h>
 #include <microsim/MSVehicle.h>
 #include <microsim/MSVehicleType.h>
+#include <microsim/transportables/MSTransportableControl.h>
 #include <utils/vehicle/SUMOVehicle.h>
 #include <utils/options/OptionsCont.h>
 #include <utils/iodevices/OutputDevice_String.h>
@@ -48,6 +48,8 @@ bool MSDevice_Vehroutes::mySorted = false;
 bool MSDevice_Vehroutes::myIntendedDepart = false;
 bool MSDevice_Vehroutes::myRouteLength = false;
 bool MSDevice_Vehroutes::mySkipPTLines = false;
+bool MSDevice_Vehroutes::myIncludeIncomplete = false;
+bool MSDevice_Vehroutes::myWriteStopPriorEdges = false;
 MSDevice_Vehroutes::StateListener MSDevice_Vehroutes::myStateListener;
 std::map<const SUMOTime, int> MSDevice_Vehroutes::myDepartureCounts;
 std::map<const SUMOTime, std::map<const std::string, std::string> > MSDevice_Vehroutes::myRouteInfos;
@@ -72,6 +74,8 @@ MSDevice_Vehroutes::init() {
         myIntendedDepart = oc.getBool("vehroute-output.intended-depart");
         myRouteLength = oc.getBool("vehroute-output.route-length");
         mySkipPTLines = oc.getBool("vehroute-output.skip-ptlines");
+        myIncludeIncomplete = oc.getBool("vehroute-output.incomplete");
+        myWriteStopPriorEdges = oc.getBool("vehroute-output.stop-edges");
         MSNet::getInstance()->addVehicleStateListener(&myStateListener);
     }
 }
@@ -117,7 +121,7 @@ MSDevice_Vehroutes::MSDevice_Vehroutes(SUMOVehicle& holder, const std::string& i
     myDepartPos(-1),
     myDepartSpeed(-1),
     myDepartPosLat(0),
-    myStopOut(false, 2) {
+    myStopOut(2) {
     myCurrentRoute->addReference();
 }
 
@@ -132,25 +136,29 @@ MSDevice_Vehroutes::~MSDevice_Vehroutes() {
 
 
 bool
-MSDevice_Vehroutes::notifyEnter(SUMOVehicle& veh, MSMoveReminder::Notification reason, const MSLane* /* enteredLane */) {
+MSDevice_Vehroutes::notifyEnter(SUMOTrafficObject& veh, MSMoveReminder::Notification reason, const MSLane* enteredLane) {
     if (reason == MSMoveReminder::NOTIFICATION_DEPARTED) {
-        if (mySorted && myStateListener.myDevices[&veh] == this) {
+        if (mySorted && myStateListener.myDevices[static_cast<SUMOVehicle*>(&veh)] == this) {
             const SUMOTime departure = myIntendedDepart ? myHolder.getParameter().depart : MSNet::getInstance()->getCurrentTimeStep();
             myDepartureCounts[departure]++;
         }
         if (!MSGlobals::gUseMesoSim) {
-            myDepartLane = static_cast<MSVehicle&>(veh).getLane()->getIndex();
-            myDepartPosLat = static_cast<MSVehicle&>(veh).getLateralPositionOnLane();
+            const MSVehicle& vehicle = static_cast<MSVehicle&>(veh);
+            myDepartLane = vehicle.getLane()->getIndex();
+            myDepartPosLat = vehicle.getLateralPositionOnLane();
         }
         myDepartSpeed = veh.getSpeed();
         myDepartPos = veh.getPositionOnLane();
     }
-    return mySaveExits;
+    if (myWriteStopPriorEdges) {
+        myPriorEdges.push_back(&enteredLane->getEdge());
+    }
+    return mySaveExits || myWriteStopPriorEdges;
 }
 
 
 bool
-MSDevice_Vehroutes::notifyLeave(SUMOVehicle& veh, double /*lastPos*/, MSMoveReminder::Notification reason, const MSLane* /* enteredLane */) {
+MSDevice_Vehroutes::notifyLeave(SUMOTrafficObject& veh, double /*lastPos*/, MSMoveReminder::Notification reason, const MSLane* /* enteredLane */) {
     if (mySaveExits && reason != NOTIFICATION_LANE_CHANGE) {
         if (reason != NOTIFICATION_TELEPORT && myLastSavedAt == veh.getEdge()) { // need to check this for internal lanes
             myExits.back() = MSNet::getInstance()->getCurrentTimeStep();
@@ -159,19 +167,24 @@ MSDevice_Vehroutes::notifyLeave(SUMOVehicle& veh, double /*lastPos*/, MSMoveRemi
             myLastSavedAt = veh.getEdge();
         }
     }
-    return mySaveExits;
+    return mySaveExits || myWriteStopPriorEdges;
 }
 
 
 void
 MSDevice_Vehroutes::stopEnded(const SUMOVehicleParameter::Stop& stop) {
-    stop.write(myStopOut);
+    stop.write(myStopOut, !myWriteStopPriorEdges);
+    if (myWriteStopPriorEdges) {
+        myStopOut.writeAttr("priorEdges", myPriorEdges);
+        myPriorEdges.clear();
+        myStopOut.closeTag();
+    }
 }
 
 
 void
 MSDevice_Vehroutes::writeXMLRoute(OutputDevice& os, int index) const {
-    if (index == 0 && myReplacedRoutes[index].route->size() == 2 &&
+    if (index == 0 && !myIncludeIncomplete && myReplacedRoutes[index].route->size() == 2 &&
             myReplacedRoutes[index].route->getEdges().front()->isTazConnector() &&
             myReplacedRoutes[index].route->getEdges().back()->isTazConnector()) {
         return;
@@ -198,7 +211,7 @@ MSDevice_Vehroutes::writeXMLRoute(OutputDevice& os, int index) const {
         os << " edges=\"";
         // get the route
         int i = index;
-        while (i > 0 && myReplacedRoutes[i - 1].edge) {
+        while (i > 0 && myReplacedRoutes[i - 1].edge != nullptr && !myIncludeIncomplete) {
             i--;
         }
         const MSEdge* lastEdge = nullptr;
@@ -253,7 +266,7 @@ MSDevice_Vehroutes::writeXMLRoute(OutputDevice& os, int index) const {
 
 
 void
-MSDevice_Vehroutes::generateOutput() const {
+MSDevice_Vehroutes::generateOutput(OutputDevice* /*tripinfoOut*/) const {
     writeOutput(true);
 }
 
@@ -264,7 +277,7 @@ MSDevice_Vehroutes::writeOutput(const bool hasArrived) const {
         return;
     }
     OutputDevice& routeOut = OutputDevice::getDeviceByOption("vehroute-output");
-    OutputDevice_String od(routeOut.isBinary(), 1);
+    OutputDevice_String od(1);
     SUMOVehicleParameter tmp = myHolder.getParameter();
     tmp.depart = myIntendedDepart ? myHolder.getParameter().depart : myHolder.getDeparture();
     if (!MSGlobals::gUseMesoSim) {
@@ -325,15 +338,16 @@ MSDevice_Vehroutes::writeOutput(const bool hasArrived) const {
             writeXMLRoute(od);
         }
     } else {
-        if (myReplacedRoutes.size() > 0) {
+        const int routesToSkip = myHolder.getParameter().wasSet(VEHPARS_FORCE_REROUTE) && !myIncludeIncomplete ? 1 : 0;
+        if ((int)myReplacedRoutes.size() > routesToSkip) {
             od.openTag(SUMO_TAG_ROUTE_DISTRIBUTION);
-            for (int i = 0; i < (int)myReplacedRoutes.size(); ++i) {
+            for (int i = routesToSkip; i < (int)myReplacedRoutes.size(); ++i) {
                 writeXMLRoute(od, i);
             }
-        }
-        writeXMLRoute(od);
-        if (myReplacedRoutes.size() > 0) {
+            writeXMLRoute(od);
             od.closeTag();
+        } else {
+            writeXMLRoute(od);
         }
     }
     od << myStopOut.getString();
@@ -396,6 +410,14 @@ MSDevice_Vehroutes::generateOutputForUnfinished() {
             it.second->writeOutput(false);
         }
     }
+    // unfinished persons
+    MSNet* net = MSNet::getInstance();
+    if (net->hasPersons()) {
+        MSTransportableControl& pc = net->getPersonControl();
+        while (pc.loadedBegin() != pc.loadedEnd()) {
+            pc.erase(pc.loadedBegin()->second);
+        }
+    }
 }
 
 
@@ -443,7 +465,9 @@ MSDevice_Vehroutes::loadState(const SUMOSAXAttributes& attrs) {
         bis >> time;
         bis >> routeID;
         bis >> info;
-        myReplacedRoutes.push_back(RouteReplaceInfo(MSEdge::dictionary(edgeID), time, MSRoute::dictionary(routeID), info));
+        const MSRoute* route = MSRoute::dictionary(routeID);
+        route->addReference();
+        myReplacedRoutes.push_back(RouteReplaceInfo(MSEdge::dictionary(edgeID), time, route, info));
     }
 }
 

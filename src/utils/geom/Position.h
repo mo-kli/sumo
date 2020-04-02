@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    Position.h
 /// @author  Daniel Krajzewicz
@@ -13,17 +17,10 @@
 /// @author  Axel Wegener
 /// @author  Michael Behrisch
 /// @date    Sept 2002
-/// @version $Id$
 ///
 // A position in the 2D- or 3D-world
 /****************************************************************************/
-#ifndef Position_h
-#define Position_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <iostream>
 #include <cmath>
 
@@ -39,15 +36,15 @@
 class Position {
 public:
     /// @brief default constructor
-    Position() : 
+    Position() :
         myX(0.0), myY(0.0), myZ(0.0) { }
 
     /// @brief Parametrised constructor (only for x-y)
-    Position(double x, double y) : 
+    Position(double x, double y) :
         myX(x), myY(y), myZ(0) { }
 
     /// @brief Parametrised constructor
-    Position(double x, double y, double z) : 
+    Position(double x, double y, double z) :
         myX(x), myY(y), myZ(z) { }
 
     /// @brief Destructor
@@ -275,7 +272,7 @@ public:
     void swapXY() {
         std::swap(myX, myY);
     }
-    
+
     /// @brief check if position is NAN
     bool isNAN() const {
         return (std::isnan(myX) || std::isnan(myY) || std::isnan(myZ));
@@ -283,11 +280,6 @@ public:
 
     /// @brief used to indicate that a position is valid
     static const Position INVALID;
-
-    /// @brief reference to invalid position (needed if INVALID is taken by macro-definition)
-    static const Position& invalidPosition() {
-        return INVALID;
-    }
 
 private:
     /// @brief  The x-position
@@ -299,9 +291,3 @@ private:
     /// @brief  The z-position
     double myZ;
 };
-
-
-#endif
-
-/****************************************************************************/
-

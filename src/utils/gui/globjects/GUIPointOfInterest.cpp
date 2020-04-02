@@ -1,26 +1,24 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIPointOfInterest.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    June 2006
-/// @version $Id$
 ///
 // The GUI-version of a point of interest
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <utils/gui/div/GUIParameterTableWindow.h>
@@ -34,13 +32,6 @@
 #include <utils/gui/div/GLHelper.h>
 #include <utils/gui/globjects/GLIncludes.h>
 #include "GUIPointOfInterest.h"
-
-
-// ===========================================================================
-// static members
-// ===========================================================================
-
-std::vector<Position> GUIPointOfInterest::myPOIVertices;
 
 
 // ===========================================================================
@@ -71,7 +62,7 @@ GUIPointOfInterest::getPopUpMenu(GUIMainWindow& app, GUISUMOAbstractView& parent
 
 GUIParameterTableWindow*
 GUIPointOfInterest::getParameterWindow(GUIMainWindow& app, GUISUMOAbstractView&) {
-    GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this, 3 + (int)getParametersMap().size());
+    GUIParameterTableWindow* ret = new GUIParameterTableWindow(app, *this);
     // add items
     ret->mkItem("type", false, getShapeType());
     ret->mkItem("layer", false, getShapeLayer());
@@ -96,14 +87,12 @@ GUIPointOfInterest::getCenteringBoundary() const {
 
 void
 GUIPointOfInterest::drawGL(const GUIVisualizationSettings& s) const {
-    // first clear vertices
-    myPOIVertices.clear();
     // check if POI can be drawn
-    if(checkDraw(s)) {
+    if (checkDraw(s)) {
         // push name (needed for getGUIGlObjectsUnderCursor(...)
         glPushName(getGlID());
         // draw inner polygon
-        drawInnerPOI(s);
+        drawInnerPOI(s, false);
         // pop name
         glPopName();
     }
@@ -111,10 +100,10 @@ GUIPointOfInterest::drawGL(const GUIVisualizationSettings& s) const {
 
 
 void
-GUIPointOfInterest::setColor(const GUIVisualizationSettings& s) const {
+GUIPointOfInterest::setColor(const GUIVisualizationSettings& s, bool disableSelectionColor) const {
     const GUIColorer& c = s.poiColorer;
     const int active = c.getActive();
-    if (s.netedit && active != 1 && gSelected.isSelected(GLO_POI, getGlID())) {
+    if (s.netedit && active != 1 && gSelected.isSelected(GLO_POI, getGlID()) && disableSelectionColor) {
         // override with special colors (unless the color scheme is based on selection)
         GLHelper::setColor(RGBColor(0, 0, 204));
     } else if (active == 0) {
@@ -127,7 +116,7 @@ GUIPointOfInterest::setColor(const GUIVisualizationSettings& s) const {
 }
 
 
-bool 
+bool
 GUIPointOfInterest::checkDraw(const GUIVisualizationSettings& s) const {
     // only continue if scale is valid
     if (s.scale * (1.3 / 3.0) *s.poiSize.getExaggeration(s, this) < s.poiSize.minSize) {
@@ -137,11 +126,11 @@ GUIPointOfInterest::checkDraw(const GUIVisualizationSettings& s) const {
 }
 
 
-void 
-GUIPointOfInterest::drawInnerPOI(const GUIVisualizationSettings& s) const {
+void
+GUIPointOfInterest::drawInnerPOI(const GUIVisualizationSettings& s, bool disableSelectionColor) const {
     const double exaggeration = s.poiSize.getExaggeration(s, this);
     glPushMatrix();
-    setColor(s);
+    setColor(s, disableSelectionColor);
     glTranslated(x(), y(), getShapeLayer());
     glRotated(-getShapeNaviDegree(), 0, 0, 1);
     // check if has to be drawn as a circle or with an image
@@ -149,20 +138,20 @@ GUIPointOfInterest::drawInnerPOI(const GUIVisualizationSettings& s) const {
         int textureID = GUITexturesHelper::getTextureID(getShapeImgFile());
         if (textureID > 0) {
             GUITexturesHelper::drawTexturedBox(textureID,
-                                                -myHalfImgWidth * exaggeration, -myHalfImgHeight * exaggeration,
-                                                myHalfImgWidth * exaggeration,  myHalfImgHeight * exaggeration);
+                                               -myHalfImgWidth * exaggeration, -myHalfImgHeight * exaggeration,
+                                               myHalfImgWidth * exaggeration,  myHalfImgHeight * exaggeration);
         }
     } else {
         // fallback if no image is defined
-        if (s.drawForSelecting) {
+        if (s.drawForRectangleSelection) {
             GLHelper::drawFilledCircle((double) 1.3 * exaggeration, 8);
         } else {
             // draw filled circle saving vertices
-            myPOIVertices = GLHelper::drawFilledCircleReturnVertices((double) 1.3 * exaggeration, 16);
+            GLHelper::drawFilledCircle((double) 1.3 * exaggeration, 16);
         }
     }
     glPopMatrix();
-    if (!s.drawForSelecting) {
+    if (!s.drawForRectangleSelection) {
         const Position namePos = *this;
         drawName(namePos, s.scale, s.poiName, s.angle);
         if (s.poiType.show) {
@@ -172,5 +161,5 @@ GUIPointOfInterest::drawInnerPOI(const GUIVisualizationSettings& s) const {
     }
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

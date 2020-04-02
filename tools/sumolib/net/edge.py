@@ -1,10 +1,14 @@
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2011-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2011-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    edge.py
 # @author  Daniel Krajzewicz
@@ -13,7 +17,6 @@
 # @author  Michael Behrisch
 # @author  Jakob Erdmann
 # @date    2011-11-28
-# @version $Id$
 
 from .connection import Connection
 from .lane import addJunctionPos
@@ -37,6 +40,7 @@ class Edge:
         self._length = None
         self._incoming = {}
         self._outgoing = {}
+        self._crossingEdges = []
         self._shape = None
         self._shapeWithJunctions = None
         self._shape3D = None
@@ -46,6 +50,8 @@ class Edge:
         self._function = function
         self._tls = None
         self._name = name
+        self._params = {}
+        self._bidi = None
 
     def getName(self):
         return self._name
@@ -67,6 +73,9 @@ class Edge:
     def getTLS(self):
         return self._tls
 
+    def getCrossingEdges(self):
+        return self._crossingEdges
+
     def addLane(self, lane):
         self._lanes.append(lane)
         self._speed = lane.getSpeed()
@@ -82,6 +91,10 @@ class Edge:
             self._incoming[conn._from] = []
         self._incoming[conn._from].append(conn)
 
+    def _addCrossingEdge(self, edge):
+        if edge not in self._crossingEdges:
+            self._crossingEdges.append(edge)
+
     def setRawShape(self, shape):
         self._rawShape3D = shape
 
@@ -93,6 +106,19 @@ class Edge:
 
     def getOutgoing(self):
         return self._outgoing
+
+    def getAllowedOutgoing(self, vClass):
+        if vClass is None or vClass == "ignoring":
+            return self._outgoing
+        else:
+            result = {}
+            for e, conns in self._outgoing.items():
+                allowedConns = [c for c in conns if
+                                c.getFromLane().allows(vClass) and
+                                c.getToLane().allows(vClass)]
+                if allowedConns:
+                    result[e] = allowedConns
+            return result
 
     def getConnections(self, toEdge):
         """Returns all connections to the given target edge"""
@@ -211,6 +237,9 @@ class Edge:
     def getToNode(self):
         return self._to
 
+    def getBidi(self):
+        return self._bidi
+
     def is_fringe(self, connections=None):
         """true if this edge has no incoming or no outgoing connections (except turnarounds)
            If connections is given, only those connections are considered"""
@@ -226,6 +255,15 @@ class Edge:
             if lane.allows(vClass):
                 return True
         return False
+
+    def setParam(self, key, value):
+        self._params[key] = value
+
+    def getParam(self, key, default=None):
+        return self._params.get(key, default)
+
+    def getParams(self):
+        return self._params
 
     def __repr__(self):
         if self.getFunction() == '':

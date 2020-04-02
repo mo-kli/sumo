@@ -1,25 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2005-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2005-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSStoppingPlace.cpp
 /// @author  Daniel Krajzewicz
 /// @author  Michael Behrisch
 /// @date    Mon, 13.12.2005
-/// @version $Id$
 ///
 // A lane area vehicles can halt at
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cassert>
@@ -29,9 +27,8 @@
 #include <microsim/MSVehicleType.h>
 #include <microsim/MSNet.h>
 #include "MSLane.h"
-#include "MSTransportable.h"
+#include <microsim/transportables/MSTransportable.h>
 #include "MSStoppingPlace.h"
-
 
 // ===========================================================================
 // method definitions
@@ -39,10 +36,19 @@
 MSStoppingPlace::MSStoppingPlace(const std::string& id,
                                  const std::vector<std::string>& lines,
                                  MSLane& lane,
-                                 double begPos, double endPos, const std::string name)
-    : Named(id), myLines(lines), myLane(lane),
-      myBegPos(begPos), myEndPos(endPos), myLastFreePos(endPos), myWaitingPos(endPos), myName(name) {
+                                 double begPos, double endPos, const std::string name,
+                                 int capacity,
+                                 double parkingLength) :
+    Named(id), myLines(lines), myLane(lane),
+    myBegPos(begPos), myEndPos(endPos), myLastFreePos(endPos),
+    myName(name),
+    myTransportableCapacity(capacity),
+    myParkingFactor(parkingLength <= 0 ? 1 : (endPos - begPos) / parkingLength)
+{
     computeLastFreePos();
+    for (int i = 0; i < capacity; i++) {
+        myWaitingSpots.insert(i);
+    }
 }
 
 
@@ -68,8 +74,10 @@ MSStoppingPlace::getEndLanePosition() const {
 
 
 void
-MSStoppingPlace::enter(SUMOVehicle* what, double beg, double end) {
-    myEndPositions[what] = std::pair<double, double>(beg, end);
+MSStoppingPlace::enter(SUMOVehicle* veh, bool parking) {
+    double beg = veh->getPositionOnLane() + veh->getVehicleType().getMinGap();
+    double end = beg - veh->getVehicleType().getLengthWithGap() * (parking ? myParkingFactor : 1);
+    myEndPositions[veh] = std::make_pair(beg, end);
     computeLastFreePos();
 }
 
@@ -79,6 +87,9 @@ MSStoppingPlace::getLastFreePos(const SUMOVehicle& forVehicle) const {
     if (myLastFreePos != myEndPos) {
         const double vehGap = forVehicle.getVehicleType().getMinGap();
         double pos = myLastFreePos - vehGap;
+        if (forVehicle.getLane() == &myLane && forVehicle.getPositionOnLane() < myEndPos && forVehicle.getPositionOnLane() > myBegPos && forVehicle.getSpeed() <= SUMO_const_haltingSpeed) {
+            return forVehicle.getPositionOnLane();
+        }
         if (!fits(pos, forVehicle)) {
             // try to find a place ahead of the waiting vehicles
             const double vehLength = forVehicle.getVehicleType().getLength();
@@ -114,9 +125,42 @@ MSStoppingPlace::fits(double pos, const SUMOVehicle& veh) const {
     return pos + POSITION_EPS >= myEndPos || (pos - myBegPos >= veh.getVehicleType().getLength() / 2);
 }
 
+double
+MSStoppingPlace::getWaitingPositionOnLane(MSTransportable* t) const {
+    auto it = myWaitingTransportables.find(t);
+    if (it != myWaitingTransportables.end() && it->second >= 0) {
+        return myEndPos - (0.5 + (it->second) % getPersonsAbreast()) * SUMO_const_waitingPersonWidth;
+    } else {
+        return (myEndPos + myBegPos) / 2;
+    }
+}
+
+
+int
+MSStoppingPlace::getPersonsAbreast(double length) {
+    return MAX2(1, (int)floor(length / SUMO_const_waitingPersonWidth));
+}
+
+int
+MSStoppingPlace::getPersonsAbreast() const {
+    return getPersonsAbreast(myEndPos - myBegPos);
+}
+
 Position
-MSStoppingPlace::getWaitPosition() const {
-    return myLane.getShape().positionAtOffset(myLane.interpolateLanePosToGeometryPos(myWaitingPos), .5);
+MSStoppingPlace::getWaitPosition(MSTransportable* t) const {
+    double lanePos = getWaitingPositionOnLane(t);
+    int row = 0;
+    auto it = myWaitingTransportables.find(t);
+    if (it != myWaitingTransportables.end()) {
+        if (it->second >= 0) {
+            row = int(it->second / getPersonsAbreast());
+        } else {
+            // invalid position, draw outside bounds
+            row = 1 + myTransportableCapacity / getPersonsAbreast();
+        }
+    }
+    return myLane.getShape().positionAtOffset(myLane.interpolateLanePosToGeometryPos(lanePos),
+            myLane.getWidth() / 2 + row * SUMO_const_waitingPersonDepth);
 }
 
 
@@ -130,23 +174,39 @@ MSStoppingPlace::getStoppingPosition(const SUMOVehicle* veh) const {
     }
 }
 
-void
+std::vector<MSTransportable*>
+MSStoppingPlace::getTransportables() const {
+    std::vector<MSTransportable*> result;
+    for (std::map<MSTransportable*, int>::const_iterator it = myWaitingTransportables.begin(); it != myWaitingTransportables.end(); it++) {
+        result.push_back(it->first);
+    }
+    return result;
+}
+
+bool
+MSStoppingPlace::hasSpaceForTransportable() const {
+    return myWaitingSpots.size() > 0;
+}
+
+bool
 MSStoppingPlace::addTransportable(MSTransportable* p) {
-    myWaitingTransportables.push_back(p);
-    myWaitingPos -= p->getVehicleType().getLength();
-    myWaitingPos = MAX2(myBegPos, myWaitingPos);
+    int spot = -1;
+    if (!hasSpaceForTransportable()) {
+        return false;
+    }
+    spot = *myWaitingSpots.begin();
+    myWaitingSpots.erase(myWaitingSpots.begin());
+    myWaitingTransportables[p] = spot;
+    return true;
 }
 
 
 void
 MSStoppingPlace::removeTransportable(MSTransportable* p) {
-    std::vector<MSTransportable*>::iterator i = std::find(myWaitingTransportables.begin(), myWaitingTransportables.end(), p);
+    auto i = myWaitingTransportables.find(p);
     if (i != myWaitingTransportables.end()) {
-        if (i == myWaitingTransportables.end() - 1) {
-            myWaitingPos -= p->getVehicleType().getLength();
-        }
-        if (i == myWaitingTransportables.begin()) {
-            myWaitingPos = getEndLanePosition();
+        if (i->second >= 0) {
+            myWaitingSpots.insert(i->second);
         }
         myWaitingTransportables.erase(i);
     }

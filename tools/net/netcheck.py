@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    netcheck.py
 # @author  Michael Behrisch
@@ -14,7 +18,6 @@
 # @author  Jakob Erdmann
 # @author  Greg Albiston
 # @date    2007-03-20
-# @version $Id$
 
 """
 This script does simple check for the network.
@@ -107,14 +110,14 @@ def getReachable(net, source_id, options, useIncoming=False):
                 cands = chain(chain(*edge.getIncoming().values()), chain(*edge.getOutgoing().values()))
             else:
                 cands = chain(*(edge.getIncoming().values() if useIncoming else edge.getOutgoing().values()))
-            #print("\n".join(map(str, list(cands))))
+            # print("\n".join(map(str, list(cands))))
             for conn in cands:
                 if options.vclass is None or (
                         conn.getFromLane().allows(options.vclass)
                         and conn.getToLane().allows(options.vclass)):
                     for reachable in [conn.getTo(), conn.getFrom()]:
                         if reachable not in found:
-                            #print("added %s via %s" % (reachable, conn))
+                            # print("added %s via %s" % (reachable, conn))
                             found.add(reachable)
                             new_fringe.append(reachable)
         fringe = new_fringe

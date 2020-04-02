@@ -1,17 +1,20 @@
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2013-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2013-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    geomhelper.py
 # @author  Daniel Krajzewicz
 # @author  Jakob Erdmann
 # @author  Michael Behrisch
 # @date    2013-02-25
-# @version $Id$
 
 from __future__ import absolute_import
 import math
@@ -35,15 +38,15 @@ def lineOffsetWithMinimumDistanceToPoint(point, line_start, line_end, perpendicu
     p = point
     p1 = line_start
     p2 = line_end
-    l = distance(p1, p2)
+    d = distance(p1, p2)
     u = ((p[0] - p1[0]) * (p2[0] - p1[0])) + ((p[1] - p1[1]) * (p2[1] - p1[1]))
-    if l == 0 or u < 0.0 or u > l * l:
+    if d == 0. or u < 0. or u > d * d:
         if perpendicular:
             return INVALID_DISTANCE
-        if u < 0:
-            return 0
-        return l
-    return u / l
+        if u < 0.:
+            return 0.
+        return d
+    return u / d
 
 
 def polygonOffsetAndDistanceToPoint(point, polygon, perpendicular=False):
@@ -148,6 +151,27 @@ def angle2D(p1, p2):
     return dtheta
 
 
+def naviDegree(rad):
+    return normalizeAngle(math.degrees(math.pi / 2. - rad), 0, 360, 360)
+
+
+def fromNaviDegree(degrees):
+    return math.pi / 2. - math.radians(degrees)
+
+
+def normalizeAngle(a, lower, upper, circle):
+    while a < lower:
+        a = a + circle
+    while a > upper:
+        a = a - circle
+    return a
+
+
+def minAngleDegreeDiff(d1, d2):
+    return min(normalizeAngle(d1 - d2, 0, 360, 360),
+               normalizeAngle(d2 - d1, 0, 360, 360))
+
+
 def isWithin(pos, shape):
     angle = 0.
     for i in range(0, len(shape) - 1):
@@ -205,7 +229,10 @@ def narrow(fromPos, pos, toPos, amount):
     a = sub(toPos, pos)
     b = sub(pos, fromPos)
     c = add(a, b)
-    x = dotProduct(a, a) * length(c) / dotProduct(a, c)
+    dPac = dotProduct(a, c)
+    if dPac == 0:
+        return True
+    x = dotProduct(a, a) * length(c) / dPac
     return x < amount
 
 
@@ -232,7 +259,7 @@ def move2side(shape, amount):
             toPos = shape[i + 1]
             # check for narrow turns
             if narrow(fromPos, pos, toPos, amount):
-                #print("narrow at i=%s pos=%s" % (i, pos))
+                # print("narrow at i=%s pos=%s" % (i, pos))
                 pass
             else:
                 a = sideOffset(fromPos, pos, -amount)
@@ -244,7 +271,7 @@ def move2side(shape, amount):
                     extend = norm(sub(pos, fromPos))
                     pos2 = add(pos, mul(extend, amount))
                 result.append(pos2)
-    #print("move2side", amount)
+    # print("move2side", amount)
     # print(shape)
     # print(result)
     # print()

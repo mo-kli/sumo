@@ -1,29 +1,26 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GNEChange_Junction.cpp
 /// @author  Jakob Erdmann
 /// @date    Mar 2011
-/// @version $Id$
 ///
 // A network change in which a single junction is created or deleted
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <netedit/GNENet.h>
-#include <netedit/netelements/GNEJunction.h>
-#include <netedit/frames/GNEInspectorFrame.h>
-#include <netedit/GNEViewParent.h>
+#include <netedit/elements/network/GNEJunction.h>
 
 #include "GNEChange_Junction.h"
 
@@ -39,9 +36,8 @@ FXIMPLEMENT_ABSTRACT(GNEChange_Junction, GNEChange, nullptr, 0)
 
 /// @brief constructor for creating a junction
 GNEChange_Junction::GNEChange_Junction(GNEJunction* junction, bool forward):
-    GNEChange(junction->getNet(), forward),
+    GNEChange(junction->getNet(), junction, junction, forward),
     myJunction(junction) {
-    assert(myNet);
     junction->incRef("GNEChange_Junction");
 }
 
@@ -63,19 +59,15 @@ GNEChange_Junction::undo() {
         // show extra information for tests
         WRITE_DEBUG("Removing " + myJunction->getTagStr() + " '" + myJunction->getID() + "' from " + toString(SUMO_TAG_NET));
         // add junction to net
-        myNet->deleteSingleJunction(myJunction);
+        myNet->getAttributeCarriers()->deleteSingleJunction(myJunction);
     } else {
         // show extra information for tests
         WRITE_DEBUG("Adding " + myJunction->getTagStr() + " '" + myJunction->getID() + "' into " + toString(SUMO_TAG_NET));
         // delete junction from net
-        myNet->insertJunction(myJunction);
+        myNet->getAttributeCarriers()->insertJunction(myJunction);
     }
-    // check if inspector frame has to be updated
-    if (myNet->getViewNet()->getViewParent()->getInspectorFrame()->shown()) {
-        myNet->getViewNet()->getViewParent()->getInspectorFrame()->getACHierarchy()->refreshACHierarchy();
-    }
-    // enable save netElements
-    myNet->requiereSaveNet(true);
+    // enable save networkElements
+    myNet->requireSaveNet(true);
 }
 
 
@@ -85,19 +77,15 @@ GNEChange_Junction::redo() {
         // show extra information for tests
         WRITE_DEBUG("Adding " + myJunction->getTagStr() + " '" + myJunction->getID() + "' into " + toString(SUMO_TAG_NET));
         // add junction into net
-        myNet->insertJunction(myJunction);
+        myNet->getAttributeCarriers()->insertJunction(myJunction);
     } else {
         // show extra information for tests
         WRITE_DEBUG("Removing " + myJunction->getTagStr() + " '" + myJunction->getID() + "' from " + toString(SUMO_TAG_NET));
         // delete junction from net
-        myNet->deleteSingleJunction(myJunction);
+        myNet->getAttributeCarriers()->deleteSingleJunction(myJunction);
     }
-    // check if inspector frame has to be updated
-    if (myNet->getViewNet()->getViewParent()->getInspectorFrame()->shown()) {
-        myNet->getViewNet()->getViewParent()->getInspectorFrame()->getACHierarchy()->refreshACHierarchy();
-    }
-    // enable save netElements
-    myNet->requiereSaveNet(true);
+    // enable save networkElements
+    myNet->requireSaveNet(true);
 }
 
 

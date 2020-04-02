@@ -1,28 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIDialog_GLObjChooser.h
 /// @author  Daniel Krajzewicz
 /// @author  Jakob Erdmann
 /// @author  Michael Behrisch
 /// @date    Sept 2002
-/// @version $Id$
 ///
 // Class for the window that allows to choose a street, junction or vehicle
 /****************************************************************************/
-#ifndef GUIDialog_GLObjChooser_h
-#define GUIDialog_GLObjChooser_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -84,6 +81,9 @@ public:
     /// @brief Callback: The selected item shall be centered within the calling view
     long onCmdCenter(FXObject*, FXSelector, void*);
 
+    /// @brief Callback: The selected vehicle shall be tracked within the calling view
+    long onCmdTrack(FXObject*, FXSelector, void*);
+
     /// @brief Callback: The dialog shall be closed
     long onCmdClose(FXObject*, FXSelector, void*);
 
@@ -99,8 +99,14 @@ public:
     /// @brief Callback: Hides unselected items if pressed
     long onCmdFilter(FXObject*, FXSelector, void*);
 
+    /// @brief Callback: Hides unmatched items if pressed
+    long onCmdFilterSubstr(FXObject*, FXSelector, void*);
+
     /// @brief Callback: Toggle selection status of current object
     long onCmdToggleSelection(FXObject*, FXSelector, void*);
+
+    /// @brief Callback: Toggle locator by name
+    long onCmdLocateByName(FXObject*, FXSelector, void*);
     /// @}
 
     /// @brief sets the focus after the window is created to work-around bug in libfox
@@ -124,6 +130,9 @@ private:
     /// @brief The button that triggers centering on the select object
     FXButton* myCenterButton;
 
+    /// @brief The button that triggers tracking on the select vehicle
+    FXButton* myTrackButton;
+
     /// @brief The parent window
     GUIGlChildWindow* myParent;
 
@@ -137,15 +146,13 @@ private:
     //volatile pointers to GUIGlObject
     std::set<GUIGlID> myIDs;
 
+    /// @brief whether to locate by object name instead of id
+    bool myLocateByName;
+
+    /// @brief whether the list was filter by substring
+    bool myHaveFilteredSubstring;
 
 protected:
-    /// FOX needs this
-    GUIDialog_GLObjChooser() { }
+    FOX_CONSTRUCTOR(GUIDialog_GLObjChooser)
 
 };
-
-
-#endif
-
-/****************************************************************************/
-

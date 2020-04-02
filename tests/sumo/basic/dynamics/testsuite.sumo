@@ -4,9 +4,6 @@ avoid_spill_back
 # tests for driver impatience
 impatience
 
-# test proper behavior at junctions (collision avoidance, efficent usage)
-junction
-
 # test behavior when vehicles cannot drive
 deadlock
 
@@ -42,3 +39,6 @@ approach_slow_subsecond
 
 # foe on minor hindering insertion
 foe_on_minor
+
+# test edges of various lengths with vehicles of various lengths
+short_edges

@@ -19,7 +19,7 @@
                 <xsd:element name="vehicleTransfer" type="vehicleTransferType" minOccurs="0"/>
             </xsd:choice>
             <xsd:attribute name="version" type="xsd:string"/>
-            <xsd:attribute name="time" type="nonNegativeFloatType"/>
+            <xsd:attribute name="time" type="timeType"/>
         </xsd:complexType>
     </xsd:element>
 
@@ -36,7 +36,7 @@
         <xsd:attribute name="number" type="xsd:int" use="required"/>
         <xsd:attribute name="begin" type="xsd:int" use="required"/>
         <xsd:attribute name="end" type="xsd:int" use="required"/>
-        <xsd:attribute name="depart" type="nonNegativeFloatType" use="required"/>
+        <xsd:attribute name="depart" type="xsd:float" use="required"/>
         <xsd:attribute name="time" type="nonNegativeFloatType" use="required"/>
     </xsd:complexType>
 
@@ -57,6 +57,7 @@
     <xsd:complexType name="flowStateType">
         <xsd:attribute name="id" type="xsd:string" use="required"/>
         <xsd:attribute name="index" type="xsd:nonNegativeInteger" use="required"/>
+        <xsd:attribute name="reroute" type="boolType" use="optional"/>
     </xsd:complexType>
 
     <xsd:complexType name="vehicleStateType">

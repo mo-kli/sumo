@@ -1,25 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GNELoadThread.cpp
 /// @author  Jakob Erdmann
 /// @date    Feb 2011
-/// @version $Id$
 ///
 // The thread that performs the loading of a Netedit-net (adapted from
 // GUILoadThread)
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <netbuild/NBFrame.h>
 #include <netbuild/NBNetBuilder.h>
 #include <netimport/NIFrame.h>
@@ -41,7 +39,7 @@
 // ===========================================================================
 // member method definitions
 // ===========================================================================
-GNELoadThread::GNELoadThread(FXApp* app, MFXInterThreadEventClient* mw, MFXEventQue<GUIEvent*>& eq, FXEX::FXThreadEvent& ev) :
+GNELoadThread::GNELoadThread(FXApp* app, MFXInterThreadEventClient* mw, FXSynchQue<GUIEvent*>& eq, FXEX::FXThreadEvent& ev) :
     FXSingleEventThread(app, mw), myParent(mw), myEventQue(eq),
     myEventThrow(ev) {
     myDebugRetriever = new MsgRetrievingFunction<GNELoadThread>(this, &GNELoadThread::retrieveMessage, MsgHandler::MT_DEBUG);
@@ -81,6 +79,9 @@ GNELoadThread::run() {
             submitEndAndCleanup(net);
             return 0;
         }
+    }
+    if (oc.isDefault("aggregate-warnings")) {
+        oc.set("aggregate-warnings", "5");
     }
     MsgHandler::initOutputOptions();
     if (!(NIFrame::checkOptions() &&
@@ -189,7 +190,7 @@ GNELoadThread::submitEndAndCleanup(GNENet* net, const std::string& guiSettingsFi
     MsgHandler::getMessageInstance()->removeRetriever(myMessageRetriever);
     // inform parent about the process
     GUIEvent* e = new GNEEvent_NetworkLoaded(net, myFile, guiSettingsFile, viewportFromRegistry);
-    myEventQue.add(e);
+    myEventQue.push_back(e);
     myEventThrow.signal();
 }
 
@@ -213,25 +214,36 @@ GNELoadThread::fillOptions(OptionsCont& oc) {
     oc.addOptionSubTopic("Unregulated Nodes");
     oc.addOptionSubTopic("Junctions");
     oc.addOptionSubTopic("Pedestrian");
+    oc.addOptionSubTopic("Bicycle");
     oc.addOptionSubTopic("Railway");
     oc.addOptionSubTopic("Formats");
     oc.addOptionSubTopic("Netedit");
     oc.addOptionSubTopic("Visualisation");
+    oc.addOptionSubTopic("Time");
 
     oc.doRegister("new", new Option_Bool(false)); // !!!
     oc.addDescription("new", "Input", "Start with a new network");
 
-    oc.doRegister("sumo-additionals-file", 'a', new Option_String());
-    oc.addDescription("sumo-additionals-file", "Netedit", "file in which additionals are loaded");
+    oc.doRegister("additional-files", 'a', new Option_FileName());
+    oc.addSynonyme("additional-files", "additional");
+    oc.addDescription("additional-files", "Netedit", "Load additional and shapes descriptions from FILE(s)");
 
     oc.doRegister("additionals-output", new Option_String());
     oc.addDescription("additionals-output", "Netedit", "file in which additionals must be saved");
 
-    oc.doRegister("sumo-shapes-file", new Option_String());
-    oc.addDescription("sumo-shapes-file", "Netedit", "file in which shapes are loaded");
+    oc.doRegister("route-files", 'r', new Option_FileName());
+    oc.addSynonyme("route-files", "routes");
+    oc.addDescription("route-files", "Netedit", "Load demand elements descriptions from FILE(s)");
 
-    oc.doRegister("shapes-output", new Option_String());
-    oc.addDescription("shapes-output", "Netedit", "file in which shapes must be saved");
+    oc.doRegister("demandelements-output", new Option_String());
+    oc.addDescription("demandelements-output", "Netedit", "file in which demand elements must be saved");
+
+    oc.doRegister("data-files", 'd', new Option_FileName());
+    oc.addSynonyme("data-files", "data");
+    oc.addDescription("data-files", "Netedit", "Load data elements descriptions from FILE(s)");
+
+    oc.doRegister("dataelements-output", new Option_String());
+    oc.addDescription("dataelements-output", "Netedit", "file in which data elements must be saved");
 
     oc.doRegister("TLSPrograms-output", new Option_String());
     oc.addDescription("TLSPrograms-output", "Netedit", "file in which TLS Programs must be saved");
@@ -248,11 +260,13 @@ GNELoadThread::fillOptions(OptionsCont& oc) {
     oc.doRegister("registry-viewport", new Option_Bool(false));
     oc.addDescription("registry-viewport", "Visualisation", "Load current viewport from registry");
 
-    oc.doRegister("window-size", new Option_String());
+    oc.doRegister("window-size", new Option_StringVector());
     oc.addDescription("window-size", "Visualisation", "Create initial window with the given x,y size");
 
-    oc.doRegister("window-pos", new Option_String());
+    oc.doRegister("window-pos", new Option_StringVector());
     oc.addDescription("window-pos", "Visualisation", "Create initial window at the given x,y position");
+
+    // testing
 
     oc.doRegister("gui-testing", new Option_Bool(false));
     oc.addDescription("gui-testing", "Visualisation", "Enable overlay for screen recognition");
@@ -263,9 +277,22 @@ GNELoadThread::fillOptions(OptionsCont& oc) {
     oc.doRegister("gui-testing-debug-gl", new Option_Bool(false));
     oc.addDescription("gui-testing-debug-gl", "Visualisation", "Enable output messages during GUI-Testing specific of gl functions");
 
+    oc.doRegister("gui-testing.setting-output", new Option_FileName());
+    oc.addDescription("gui-testing.setting-output", "Visualisation", "Save gui settings in the given settings-output file");
+
+    // register the simulation settings (needed for GNERouteHandler)
+    oc.doRegister("begin", new Option_String("0", "TIME"));
+    oc.addDescription("begin", "Time", "Defines the begin time in seconds; The simulation starts at this time");
+
+    oc.doRegister("end", new Option_String("-1", "TIME"));
+    oc.addDescription("end", "Time", "Defines the end time in seconds; The simulation ends at this time");
+
+    oc.doRegister("default.action-step-length", new Option_Float(0.0));
+    oc.addDescription("default.action-step-length", "Processing", "Length of the default interval length between action points for the car-following and lane-change models (in seconds). If not specified, the simulation step-length is used per default. Vehicle- or VType-specific settings override the default. Must be a multiple of the simulation step-length.");
+
     SystemFrame::addReportOptions(oc); // this subtopic is filled here, too
 
-    NIFrame::fillOptions();
+    NIFrame::fillOptions(true);
     NBFrame::fillOptions(false);
     NWFrame::fillOptions(false);
     RandHelper::insertRandOptions();
@@ -274,6 +301,7 @@ GNELoadThread::fillOptions(OptionsCont& oc) {
 
 void
 GNELoadThread::setDefaultOptions(OptionsCont& oc) {
+    oc.resetWritable();
     oc.set("offset.disable-normalization", "true"); // preserve the given network as far as possible
     oc.set("no-turnarounds", "true"); // otherwise it is impossible to manually removed turn-arounds
 }
@@ -329,9 +357,9 @@ GNELoadThread::loadConfigOrNet(const std::string& file, bool isNet, bool useStar
 void
 GNELoadThread::retrieveMessage(const MsgHandler::MsgType type, const std::string& msg) {
     GUIEvent* e = new GUIEvent_Message(type, msg);
-    myEventQue.add(e);
+    myEventQue.push_back(e);
     myEventThrow.signal();
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

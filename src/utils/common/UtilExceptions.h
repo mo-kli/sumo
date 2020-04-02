@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    UtilExceptions.h
 /// @author  Daniel Krajzewicz
@@ -13,19 +17,10 @@
 /// @author  Michael Behrisch
 /// @author  Felix Brack
 /// @date    Mon, 17 Dec 2001
-/// @version $Id$
 ///
 // Exceptions for used by some utility classes
 /****************************************************************************/
-#ifndef UtilExceptions_h
-#define UtilExceptions_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
-#include <config.h>
-
+#pragma once
 #include <string>
 #include <stdexcept>
 
@@ -103,6 +98,19 @@ public:
 
 
 /**
+ * TimeFormatException
+ * Thrown when the string that shall be converted into a
+ * time representation HH:MM:SS isn't valid
+ */
+class TimeFormatException : public FormatException {
+public:
+    /// @brief constructor
+    TimeFormatException(const std::string& data)
+        : FormatException("Invalid Time Format '" + data + "'") {}
+};
+
+
+/**
  * BoolFormatException
  * Thrown when the string that shall be converted into a
  * boolean does not match
@@ -144,7 +152,9 @@ public:
         : ProcessError(msg) {}
 };
 
-
+/**
+ * UnknownElement
+ */
 class IOError : public ProcessError {
 public:
     /// @brief constructor
@@ -154,15 +164,11 @@ public:
 
 /// define SOFT_ASSERT raise an assertion in debug mode everywhere except on the windows test server
 #ifdef MSVC_TEST_SERVER
-  #ifdef _DEBUG
-    #define SOFT_ASSERT(expr) if (!(expr)) {throw ProcessError("should not happen");}
-  #else
-    #define SOFT_ASSERT(expr)
-  #endif
+#ifdef _DEBUG
+#define SOFT_ASSERT(expr) if (!(expr)) {throw ProcessError("should not happen");}
 #else
-  #define SOFT_ASSERT(expr) assert(expr);
+#define SOFT_ASSERT(expr)
 #endif
-
+#else
+#define SOFT_ASSERT(expr) assert(expr);
 #endif
-
-/****************************************************************************/

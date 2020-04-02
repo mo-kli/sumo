@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSDevice_Routing.cpp
 /// @author  Michael Behrisch
@@ -14,14 +18,9 @@
 /// @author  Christoph Sommer
 /// @author  Jakob Erdmann
 /// @date    Tue, 04 Dec 2007
-/// @version $Id$
 ///
 // A device that performs vehicle rerouting based on current edge speeds
 /****************************************************************************/
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <microsim/MSNet.h>
@@ -36,10 +35,6 @@
 #include <utils/common/StaticCommand.h>
 #include <utils/common/StringUtils.h>
 #include <utils/xml/SUMOSAXAttributes.h>
-#include <utils/vehicle/DijkstraRouter.h>
-#include <utils/vehicle/AStarRouter.h>
-#include <utils/vehicle/CHRouter.h>
-#include <utils/vehicle/CHRouterWrapper.h>
 #include "MSRoutingEngine.h"
 #include "MSDevice_Routing.h"
 
@@ -62,11 +57,11 @@ MSDevice_Routing::insertOptions(OptionsCont& oc) {
     oc.addSynonyme("device.rerouting.pre-period", "device.routing.pre-period", true);
     oc.addDescription("device.rerouting.pre-period", "Routing", "The rerouting period before depart");
 
-    oc.doRegister("device.rerouting.adaptation-weight", new Option_Float(.5));
+    oc.doRegister("device.rerouting.adaptation-weight", new Option_Float(0));
     oc.addSynonyme("device.rerouting.adaptation-weight", "device.routing.adaptation-weight", true);
     oc.addDescription("device.rerouting.adaptation-weight", "Routing", "The weight of prior edge weights for exponential moving average");
 
-    oc.doRegister("device.rerouting.adaptation-steps", new Option_Integer(0));
+    oc.doRegister("device.rerouting.adaptation-steps", new Option_Integer(180));
     oc.addSynonyme("device.rerouting.adaptation-steps", "device.routing.adaptation-steps", true);
     oc.addDescription("device.rerouting.adaptation-steps", "Routing", "The number of steps for moving average weight of prior edge weights");
 
@@ -88,6 +83,12 @@ MSDevice_Routing::insertOptions(OptionsCont& oc) {
     oc.doRegister("device.rerouting.synchronize", new Option_Bool(false));
     oc.addDescription("device.rerouting.synchronize", "Routing", "Let rerouting happen at the same time for all vehicles");
 
+    oc.doRegister("device.rerouting.railsignal", new Option_Bool(true));
+    oc.addDescription("device.rerouting.railsignal", "Routing", "Allow rerouting triggered by rail signals.");
+
+    oc.doRegister("device.rerouting.bike-speeds", new Option_Bool(false));
+    oc.addDescription("device.rerouting.bike-speeds", "Routing", "Compute separate average speeds for bicycles");
+
     oc.doRegister("device.rerouting.output", new Option_FileName());
     oc.addDescription("device.rerouting.output", "Routing", "Save adapting weights to FILE");
 }
@@ -96,7 +97,7 @@ MSDevice_Routing::insertOptions(OptionsCont& oc) {
 bool
 MSDevice_Routing::checkOptions(OptionsCont& oc) {
     bool ok = true;
-    if (oc.getInt("device.rerouting.adaptation-steps") > 0 && !oc.isDefault("device.rerouting.adaptation-weight")) {
+    if (!oc.isDefault("device.rerouting.adaptation-steps") && !oc.isDefault("device.rerouting.adaptation-weight")) {
         WRITE_ERROR("Only one of the options 'device.rerouting.adaptation-steps' or 'device.rerouting.adaptation-weight' may be given.");
         ok = false;
     }
@@ -119,6 +120,9 @@ MSDevice_Routing::checkOptions(OptionsCont& oc) {
         ok = false;
     }
 #endif
+    if (oc.getInt("threads") > 1 && oc.getInt("device.rerouting.threads") > 1 && oc.getInt("threads") != oc.getInt("device.rerouting.threads")) {
+        WRITE_WARNING("Adapting number of routing threads to number of simulation threads.");
+    }
     return ok;
 }
 
@@ -126,10 +130,14 @@ MSDevice_Routing::checkOptions(OptionsCont& oc) {
 void
 MSDevice_Routing::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevice*>& into) {
     const OptionsCont& oc = OptionsCont::getOptions();
-    if (v.getParameter().wasSet(VEHPARS_FORCE_REROUTE) || equippedByDefaultAssignmentOptions(oc, "rerouting", v, false)) {
+    const bool equip = equippedByDefaultAssignmentOptions(oc, "rerouting", v, false);
+    if (v.getParameter().wasSet(VEHPARS_FORCE_REROUTE) || equip) {
         // route computation is enabled
-        const SUMOTime period = string2time(oc.getString("device.rerouting.period"));
-        const SUMOTime prePeriod = string2time(oc.getString("device.rerouting.pre-period"));
+        // for implicitly equipped vehicles (trips, flows), option probability
+        // can still be used to disable periodic rerouting after insertion for
+        // parts of the fleet
+        const SUMOTime period = equip || oc.isDefault("device.rerouting.probability") ? string2time(oc.getString("device.rerouting.period")) : 0;
+        const SUMOTime prePeriod = MAX2((SUMOTime)0, string2time(oc.getString("device.rerouting.pre-period")));
         MSRoutingEngine::initWeightUpdate();
         // build the device
         into.push_back(new MSDevice_Routing(v, "routing_" + v.getID(), period, prePeriod));
@@ -141,18 +149,21 @@ MSDevice_Routing::buildVehicleDevices(SUMOVehicle& v, std::vector<MSVehicleDevic
 // MSDevice_Routing-methods
 // ---------------------------------------------------------------------------
 MSDevice_Routing::MSDevice_Routing(SUMOVehicle& holder, const std::string& id,
-                                   SUMOTime period, SUMOTime preInsertionPeriod)
-    : MSVehicleDevice(holder, id), myPeriod(period), myPreInsertionPeriod(preInsertionPeriod), myLastRouting(-1), mySkipRouting(-1), myRerouteCommand(nullptr) {
+                                   SUMOTime period, SUMOTime preInsertionPeriod) : 
+    MSVehicleDevice(holder, id),
+    myPeriod(period),
+    myPreInsertionPeriod(preInsertionPeriod),
+    myLastRouting(-1),
+    mySkipRouting(-1),
+    myRerouteCommand(nullptr),
+    myRerouteRailSignal(getBoolParam(holder, OptionsCont::getOptions(), "rerouting.railsignal", true, true))
+{
     if (myPreInsertionPeriod > 0 || holder.getParameter().wasSet(VEHPARS_FORCE_REROUTE)) {
         // we do always a pre insertion reroute for trips to fill the best lanes of the vehicle with somehow meaningful values (especially for deaprtLane="best")
         myRerouteCommand = new WrappingCommand<MSDevice_Routing>(this, &MSDevice_Routing::preInsertionReroute);
         // if we don't update the edge weights, we might as well reroute now and hopefully use our threads better
         const SUMOTime execTime = MSRoutingEngine::hasEdgeUpdates() ? holder.getParameter().depart : -1;
         MSNet::getInstance()->getInsertionEvents()->addEvent(myRerouteCommand, execTime);
-        if (myPreInsertionPeriod == 0) {
-            // the event will deschedule and destroy itself so it does not need to be stored
-            myRerouteCommand = nullptr;
-        }
     }
 }
 
@@ -166,11 +177,17 @@ MSDevice_Routing::~MSDevice_Routing() {
 
 
 bool
-MSDevice_Routing::notifyEnter(SUMOVehicle& /*veh*/, MSMoveReminder::Notification reason, const MSLane* /* enteredLane */) {
+MSDevice_Routing::notifyEnter(SUMOTrafficObject& /*veh*/, MSMoveReminder::Notification reason, const MSLane* /* enteredLane */) {
     if (reason == MSMoveReminder::NOTIFICATION_DEPARTED) {
         // clean up pre depart rerouting
         if (myRerouteCommand != nullptr) {
             myRerouteCommand->deschedule();
+        } else if (myPreInsertionPeriod > 0 && myHolder.getDepartDelay() > myPreInsertionPeriod) {
+            // pre-insertion rerouting was disabled. Reroute once if insertion was delayed
+            // this is happening in the run thread (not inbeginOfTimestepEvents) so we cannot safely use the threadPool
+            myHolder.reroute(MSNet::getInstance()->getCurrentTimeStep(), "device.rerouting", 
+                    MSRoutingEngine::getRouterTT(myHolder.getRNGIndex(), myHolder.getVClass()),
+                    false, MSRoutingEngine::withTaz(), false);
         }
         myRerouteCommand = nullptr;
         // build repetition trigger if routing shall be done more often
@@ -192,6 +209,10 @@ MSDevice_Routing::preInsertionReroute(const SUMOTime currentTime) {
     if (mySkipRouting == currentTime) {
         return DELTA_T;
     }
+    if (myPreInsertionPeriod == 0) {
+        // the event will deschedule and destroy itself so it does not need to be stored
+        myRerouteCommand = nullptr;
+    }
     const MSEdge* source = *myHolder.getRoute().begin();
     const MSEdge* dest = myHolder.getRoute().getLastEdge();
     if (source->isTazConnector() && dest->isTazConnector()) {
@@ -207,6 +228,12 @@ MSDevice_Routing::preInsertionReroute(const SUMOTime currentTime) {
         myRerouteCommand = nullptr;
         throw;
     }
+    // avoid repeated pre-insertion rerouting when the departure edge is fix and
+    // the departure lane does not depend on the route
+    if (myPreInsertionPeriod > 0 && !source->isTazConnector() && myHolder.getParameter().departLaneProcedure != DEPART_LANE_BEST_FREE) {
+        myRerouteCommand = nullptr;
+        return 0;
+    }
     return myPreInsertionPeriod;
 }
 
@@ -220,13 +247,13 @@ MSDevice_Routing::wrappedRerouteCommandExecute(SUMOTime currentTime) {
 
 void
 MSDevice_Routing::reroute(const SUMOTime currentTime, const bool onInit) {
-    MSRoutingEngine::initEdgeWeights();
+    MSRoutingEngine::initEdgeWeights(myHolder.getVClass());
     //check whether the weights did change since the last reroute
     if (myLastRouting >= MSRoutingEngine::getLastAdaptation()) {
         return;
     }
     myLastRouting = currentTime;
-    MSRoutingEngine::reroute(myHolder, currentTime, onInit);
+    MSRoutingEngine::reroute(myHolder, currentTime, "device.rerouting", onInit);
 }
 
 

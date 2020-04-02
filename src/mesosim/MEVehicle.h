@@ -1,26 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MEVehicle.h
 /// @author  Daniel Krajzewicz
 /// @date    Tue, May 2005
-/// @version $Id$
 ///
 // A vehicle from the mesoscopic point of view
 /****************************************************************************/
-#ifndef MEVehicle_h
-#define MEVehicle_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <iostream>
@@ -118,6 +115,19 @@ public:
      */
     double getConservativeSpeed(SUMOTime& earliestArrival) const;
 
+    /// @name insertion/removal
+    //@{
+
+    /** @brief Called when the vehicle is removed from the network.
+     *
+     * Moves along work reminders and
+     *  informs all devices about quitting. Calls "leaveLane" then.
+     *
+     * @param[in] reason why the vehicle leaves (reached its destination, parking, teleport)
+     */
+    void onRemovalFromNet(const MSMoveReminder::Notification reason);
+    //@}
+
 
     /** @brief Update when the vehicle enters a new edge in the move step.
      * @return Whether the vehicle's route has ended (due to vaporization, or because the destination was reached)
@@ -133,6 +143,12 @@ public:
      * @return Whether the vehicle is simulated
      */
     bool isOnRoad() const;
+
+    /** @brief Returns whether the vehicle is trying to re-enter the net
+     * @return true if the vehicle is trying to enter the net (eg after parking)
+     */
+    virtual bool isIdling() const;
+
 
     /** @brief Returns whether the vehicle is parking
      * @return whether the vehicle is parking
@@ -169,7 +185,16 @@ public:
 
     /** @brief return whether the given position is within range of the current stop
      */
-    bool isStoppedInRange(double pos) const;
+    bool isStoppedInRange(const double pos, const double tolerance) const;
+
+    /** @brief Returns whether the vehicle stops at the given stopping place */
+    bool stopsAt(MSStoppingPlace* /*stop*/) const {
+        return false;
+    };
+
+    bool stopsAtEdge(const MSEdge* /*edge*/) const {
+        return false;
+    };
 
     /** @brief Returns until when to stop at the given segment
      * @param[in] seg The segment in question
@@ -181,8 +206,10 @@ public:
 
     /** @brief Returns the list of still pending stop edges
      */
-    const ConstMSEdgeVector getStopEdges() const;
+    const ConstMSEdgeVector getStopEdges(double& firstPos, double& lastPos) const;
 
+    /// @brief return list of route indices for the remaining stops
+    std::vector<std::pair<int, double> > getStopIndices() const;
 
     /// @brief get distance for coming to a stop (used for rerouting checks)
     double getBrakeGap() const {
@@ -199,6 +226,10 @@ public:
      */
     MSParkingArea* getNextParkingArea() {
         throw ProcessError("parkingZoneReroute not implemented for meso");
+    }
+
+    const SUMOVehicleParameter::Stop* getNextStopParameter() const {
+        throw ProcessError("stop retrieval not yet implemented for meso");
     }
 
     /** @brief Sets the (planned) time at which the vehicle leaves his current cell
@@ -340,6 +371,19 @@ public:
     void updateDetectors(SUMOTime currentTime, const bool isLeave,
                          const MSMoveReminder::Notification reason = MSMoveReminder::NOTIFICATION_JUNCTION);
 
+    /** @brief Returns the velocity/lane influencer
+     *
+     * If no influencer was existing before, one is built, first
+     * @return Reference to this vehicle's speed influencer
+     */
+    BaseInfluencer& getBaseInfluencer();
+
+    const BaseInfluencer* getBaseInfluencer() const;
+
+    bool hasInfluencer() const {
+        return myInfluencer != nullptr;
+    }
+
     /// @name state io
     //@{
 
@@ -374,8 +418,7 @@ protected:
     /// @brief edges to stop
     ConstMSEdgeVector myStopEdges;
 
+    /// @brief An instance of a velocity/lane influencing instance; built in "getInfluencer"
+    BaseInfluencer* myInfluencer;
+
 };
-
-#endif
-
-/****************************************************************************/

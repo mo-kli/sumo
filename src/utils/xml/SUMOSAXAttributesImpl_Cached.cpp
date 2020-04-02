@@ -1,24 +1,22 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    SUMOSAXAttributesImpl_Cached.cpp
 /// @author  Jakob Erdmann
 /// @date    Dec 2016
-/// @version $Id$
 ///
 // Encapsulated xml-attributes that use a map from string-attr-names to string-attr-values as backend
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <cassert>
@@ -49,8 +47,20 @@ SUMOSAXAttributesImpl_Cached::SUMOSAXAttributesImpl_Cached(
     myPredefinedTagsMML(predefinedTagsMML) { }
 
 
-SUMOSAXAttributesImpl_Cached::~SUMOSAXAttributesImpl_Cached() {
+SUMOSAXAttributesImpl_Cached::SUMOSAXAttributesImpl_Cached(
+    const std::map<SumoXMLAttr, std::string>& attrs,
+    const std::map<int, std::string>& predefinedTagsMML,
+    const std::string& objectType) :
+    SUMOSAXAttributes(objectType),
+    myPredefinedTagsMML(predefinedTagsMML) {
+    // parse <SumoXMLAttr, string> to <string, string>
+    for (const auto& i : attrs) {
+        myAttrs[toString(i.first)] = i.second;
+    }
 }
+
+
+SUMOSAXAttributesImpl_Cached::~SUMOSAXAttributesImpl_Cached() { }
 
 
 bool
@@ -141,7 +151,7 @@ SUMOSAXAttributesImpl_Cached::getEdgeFunc(bool& ok) const {
         }
         ok = false;
     }
-    return EDGEFUNC_NORMAL;
+    return SumoXMLEdgeFunc::NORMAL;
 }
 
 
@@ -154,7 +164,7 @@ SUMOSAXAttributesImpl_Cached::getNodeType(bool& ok) const {
         }
         ok = false;
     }
-    return NODETYPE_UNKNOWN;
+    return SumoXMLNodeType::UNKNOWN;
 }
 
 
@@ -167,9 +177,20 @@ SUMOSAXAttributesImpl_Cached::getRightOfWay(bool& ok) const {
         }
         ok = false;
     }
-    return RIGHT_OF_WAY_DEFAULT;
+    return RightOfWay::DEFAULT;
 }
 
+FringeType
+SUMOSAXAttributesImpl_Cached::getFringeType(bool& ok) const {
+    if (hasAttribute(SUMO_ATTR_FRINGE)) {
+        std::string fringeString = getString(SUMO_ATTR_FRINGE);
+        if (SUMOXMLDefinitions::FringeTypeValues.hasString(fringeString)) {
+            return SUMOXMLDefinitions::FringeTypeValues.get(fringeString);
+        }
+        ok = false;
+    }
+    return FringeType::DEFAULT;
+}
 
 RGBColor
 SUMOSAXAttributesImpl_Cached::getColor() const {
@@ -214,15 +235,6 @@ SUMOSAXAttributesImpl_Cached::getBoundary(int attr) const {
 }
 
 
-std::vector<std::string>
-SUMOSAXAttributesImpl_Cached::getStringVector(int attr) const {
-    std::string def = getString(attr);
-    std::vector<std::string> ret;
-    parseStringVector(def, ret);
-    return ret;
-}
-
-
 std::string
 SUMOSAXAttributesImpl_Cached::getName(int attr) const {
     if (myPredefinedTagsMML.find(attr) == myPredefinedTagsMML.end()) {
@@ -240,11 +252,19 @@ SUMOSAXAttributesImpl_Cached::serialize(std::ostream& os) const {
     }
 }
 
+std::vector<std::string>
+SUMOSAXAttributesImpl_Cached::getAttributeNames() const {
+    std::vector<std::string> result;
+    for (std::map<std::string, std::string>::const_iterator it = myAttrs.begin(); it != myAttrs.end(); ++it) {
+        result.push_back(it->first);
+    }
+    return result;
+}
 
 SUMOSAXAttributes*
 SUMOSAXAttributesImpl_Cached::clone() const {
     return new SUMOSAXAttributesImpl_Cached(myAttrs, myPredefinedTagsMML, getObjectType());
 }
 
-/****************************************************************************/
 
+/****************************************************************************/

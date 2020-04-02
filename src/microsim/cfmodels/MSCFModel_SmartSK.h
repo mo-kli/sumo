@@ -1,27 +1,25 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2012-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSCFModel_SmartSK.h
 /// @author  Daniel Krajzewicz
 /// @author  Michael Behrisch
 /// @author  Peter Wagner
 /// @date    Tue, 05 Jun 2012
-/// @version $Id$
 ///
 // A smarter SK
 /****************************************************************************/
-#ifndef MSCFModel_SmartSK_h
-#define MSCFModel_SmartSK_h
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include "MSCFModel.h"
@@ -126,6 +124,8 @@ public:
     }
     /// @}
 
+    /// @brief apply dawdling
+    double patchSpeedBeforeLC(const MSVehicle* veh, double vMin, double vMax) const;
 
     /** @brief Duplicates the car-following model
      * @param[in] vtype The vehicle type this model belongs to (1:1)
@@ -146,13 +146,13 @@ private:
      * @param[in] speed The speed with no dawdling
      * @return The speed after dawdling
      */
-    virtual double dawdle(double speed) const;
+    virtual double dawdle(double speed, std::mt19937* rng) const;
 
     virtual void updateMyHeadway(const MSVehicle* const veh) const {
         // this is the point were the preferred headway changes slowly:
         SSKVehicleVariables* vars = (SSKVehicleVariables*)veh->getCarFollowVariables();
         double tTau = vars->myHeadway;
-        tTau = tTau + (myHeadwayTime - tTau) * myTmp2 + myTmp3 * tTau * RandHelper::rand(double(-1.0), double(1.0));
+        tTau = tTau + (myHeadwayTime - tTau) * myTmp2 + myTmp3 * tTau * RandHelper::rand(double(-1.0), double(1.0), veh->getRNG());
         if (tTau < TS) { // this ensures the SK safety condition
             tTau = TS;
         }
@@ -192,5 +192,4 @@ protected:
 
 };
 
-#endif /* MSCFModel_SmartSK_H */
 

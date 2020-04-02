@@ -1,32 +1,30 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2017-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2017-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    VehicleType.cpp
 /// @author  Gregor Laemmel
 /// @date    04.04.2017
-/// @version $Id$
 ///
 // C++ TraCI client API implementation
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <microsim/MSNet.h>
 #include <microsim/MSVehicleControl.h>
 #include <microsim/MSVehicleType.h>
-#include <traci-server/TraCIConstants.h>
+#include <libsumo/TraCIConstants.h>
 #include <utils/emissions/PollutantsInterface.h>
-#include <utils/xml/SUMOVehicleParserHelper.h>
+#include <utils/vehicle/SUMOVehicleParserHelper.h>
 #include "Helper.h"
 #include "VehicleType.h"
 
@@ -187,6 +185,10 @@ VehicleType::getParameter(const std::string& typeID, const std::string& key) {
     return getVType(typeID)->getParameter().getParameter(key, "");
 }
 
+int
+VehicleType::getPersonCapacity(const std::string& typeID) {
+    return getVType(typeID)->getPersonCapacity();
+}
 
 void
 VehicleType::setLength(const std::string& typeID, double length)  {
@@ -407,6 +409,8 @@ VehicleType::handleVariable(const std::string& objID, const int variable, Variab
             return wrapper->wrapDouble(objID, variable, getMaxSpeedLat(objID));
         case VAR_LATALIGNMENT:
             return wrapper->wrapString(objID, variable, getLateralAlignment(objID));
+        case VAR_PERSON_CAPACITY:
+            return wrapper->wrapInt(objID, variable, getPersonCapacity(objID));
         default:
             return false;
     }

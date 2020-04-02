@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    MSVehicle.h
 /// @author  Christian Roessel
@@ -19,17 +23,10 @@
 /// @author  Axel Wegener
 /// @author  Leonhard Luecken
 /// @date    Mon, 12 Mar 2001
-/// @version $Id$
 ///
 // Representation of a vehicle in the micro simulation
 /****************************************************************************/
-#ifndef MSVehicle_h
-#define MSVehicle_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <list>
@@ -44,6 +41,7 @@
 #include "MSBaseVehicle.h"
 #include "MSLink.h"
 #include "MSLane.h"
+#include "MSNet.h"
 
 #define INVALID_SPEED 299792458 + 1 // nothing can go faster than the speed of light! Refs. #2577
 
@@ -57,16 +55,15 @@ class MSVehicleTransfer;
 class MSAbstractLaneChangeModel;
 class MSStoppingPlace;
 class MSChargingStation;
+class MSOverheadWire;
 class MSParkingArea;
 class MSPerson;
 class MSDevice;
-class MSEdgeWeightsStorage;
 class OutputDevice;
 class Position;
-class MSContainer;
 class MSJunction;
 class MSLeaderInfo;
-//class MSDriverState;
+class MSDevice_DriverState;
 class MSSimpleDriverState;
 
 // ===========================================================================
@@ -239,6 +236,7 @@ public:
     /// @brief Destructor.
     virtual ~MSVehicle();
 
+    void initDevices();
 
     /// @name insertion/removal
     //@{
@@ -275,24 +273,6 @@ public:
      */
     bool replaceRoute(const MSRoute* route, const std::string& info, bool onInit = false, int offset = 0, bool addStops = true, bool removeStops = true);
 
-
-    /** @brief Returns whether the vehicle wil pass the given edge
-     * @param[in] The edge to find in the vehicle's current route
-     * @return Whether the given edge will be passed by the vehicle
-     * @todo Move to MSRoute?
-     */
-    bool willPass(const MSEdge* const edge) const;
-
-    int getRoutePosition() const;
-    void resetRoutePosition(int index);
-
-    /** @brief Returns the vehicle's internal edge travel times/efforts container
-     *
-     * If the vehicle does not have such a container, it is built.
-     * @return The vehicle's knowledge about edge weights
-     */
-    const MSEdgeWeightsStorage& getWeightsStorage() const;
-    MSEdgeWeightsStorage& getWeightsStorage();
     //@}
 
 
@@ -319,6 +299,12 @@ public:
     void workOnMoveReminders(double oldPos, double newPos, double newSpeed);
     //@}
 
+   /** @brief cycle through vehicle devices invoking notifyIdle
+     *
+     *   This is only implemented on the emissions device
+     *     implemented to allow capture of emissions when vehicle is not on net.
+     */
+    void workOnIdleReminders();
 
     /** @brief Returns whether the vehicle is supposed to take action in the current simulation step
      *         Updates myActionStep and myLastActionTime in case that the current simstep is an action step
@@ -391,7 +377,7 @@ public:
      *  @param[in] accel the assumed acceleration
      *  @return distance covered in next integration step
      */
-    double getDeltaPos(double accel);
+    double getDeltaPos(const double accel) const;
 
 
     /// @name state setter/getter
@@ -439,6 +425,10 @@ public:
      */
     double getLateralPositionOnLane() const {
         return myState.myPosLat;
+    }
+
+    void setLateralPositionOnLane(double posLat) {
+        myState.myPosLat = posLat;
     }
 
     /** @brief Get the vehicle's lateral position on the lane:
@@ -501,6 +491,8 @@ public:
         return myAcceleration;
     }
 
+    /// @brief get apparent deceleration based on vType parameters and current acceleration
+    double getCurrentApparentDecel() const;
 
     /** @brief Returns the vehicle's action step length in millisecs,
      *         i.e. the interval between two action points.
@@ -588,6 +580,21 @@ public:
         return myAmOnNet;
     }
 
+    /** @brief access function for Idling flag
+     *      used to record whether vehicle is waiting to enter lane (after parking)
+     */
+    void
+    setIdling(bool amIdling) {
+        myAmIdling = amIdling;
+    }
+
+    /** @brief Returns whether a sim vehicle is waiting to enter a lane
+     *      (after parking has completed)
+     * @return true if the vehicle is waiting
+     */
+    inline bool isIdling() const {
+        return myAmIdling;
+    }
 
     /** @brief Returns whether the current simulation step is an action point for the vehicle
      * @return Whether the vehicle has an action point in the current step.
@@ -678,6 +685,9 @@ public:
         return myTimeLoss;
     }
 
+    /** @brief Returns the public transport stop delay in seconds
+     */
+    double getStopDelay() const;
 
     /** @brief Returns the vehicle's direction in radians
      * @return The vehicle's current angle
@@ -701,6 +711,14 @@ public:
     /// @brief Set a custom vehicle angle in rad, optionally updates furtherLanePosLat
     void setAngle(double angle, bool straightenFurther = false);
 
+    /** @brief Sets the action steplength of the vehicle
+     *
+     * @param actionStepLength New value
+     * @param resetActionOffset whether the action offset should be reset to zero,
+     *        i.e., the next action step should follow immediately.
+     */
+    void setActionStepLength(double actionStepLength, bool resetActionOffset = true);
+
     /** Returns true if the two vehicles overlap. */
     static bool overlap(const MSVehicle* veh1, const MSVehicle* veh2) {
         if (veh1->myState.myPos < veh2->myState.myPos) {
@@ -708,7 +726,6 @@ public:
         }
         return veh1->myState.myPos - veh1->getVehicleType().getLengthWithGap() < veh2->myState.myPos;
     }
-
 
     /** Returns true if vehicle's speed is below 60km/h. This is only relevant
         on highways. Overtaking on the right is allowed then. */
@@ -864,6 +881,21 @@ public:
      */
     const std::vector<MSLane*>& getBestLanesContinuation(const MSLane* const l) const;
 
+    /** @brief Returns the upcoming (best followed by default 0) sequence of lanes to continue the route starting at the current lane
+     * @param[in] distance The downstream distance to cover
+     * @return The bestContinuations of the LaneQ for myLane (see LaneQ) concatenated with default following lanes up until
+     *  the given distance has been covered
+     * @note includes internal lanes if applicable
+     */
+    const std::vector<const MSLane*> getUpcomingLanesUntil(double distance) const;
+
+    /** @brief Returns the sequence of past lanes (right-most on edge) based on the route starting at the current lane
+     * @param[in] distance The upstream distance to cover
+     * @return The myRoute-based past lanes (right-most on edge) up until the given distance has been covered
+     * @note includes internal lanes if applicable
+     */
+    const std::vector<const MSLane*> getPastLanesUntil(double distance) const;
+
     /* @brief returns the current signed offset from the lane that is most
      * suited for continuing the current route (in the strategic sense of reducing lane-changes)
      * - 0 if the vehicle is one it's best lane
@@ -897,9 +929,8 @@ public:
      * @return The vehicle driver's state
      *
      */
-    inline std::shared_ptr<MSSimpleDriverState> getDriverState() const {
-        return myDriverState;
-    }
+
+    std::shared_ptr<MSSimpleDriverState> getDriverState() const;
 
 
     /** @brief Returns the vehicle's car following model variables
@@ -922,35 +953,42 @@ public:
         /// @brief The edge in the route to stop at
         MSRouteIterator edge;
         /// @brief The lane to stop at
-        const MSLane* lane;
+        const MSLane* lane = nullptr;
         /// @brief (Optional) bus stop if one is assigned to the stop
-        MSStoppingPlace* busstop;
+        MSStoppingPlace* busstop = nullptr;
         /// @brief (Optional) container stop if one is assigned to the stop
-        MSStoppingPlace* containerstop;
+        MSStoppingPlace* containerstop = nullptr;
         /// @brief (Optional) parkingArea if one is assigned to the stop
-        MSParkingArea* parkingarea;
+        MSParkingArea* parkingarea = nullptr;
         /// @brief (Optional) charging station if one is assigned to the stop
-        MSStoppingPlace* chargingStation;
+        MSStoppingPlace* chargingStation = nullptr;
+        /// @brief (Optional) overhead wire segment if one is assigned to the stop
+        /// @todo Check that this should really be a stopping place instance
+        MSStoppingPlace* overheadWireSegment = nullptr;
         /// @brief The stop parameter
         const SUMOVehicleParameter::Stop pars;
         /// @brief The stopping duration
-        SUMOTime duration;
+        SUMOTime duration = -1;
         /// @brief whether an arriving person lets the vehicle continue
-        bool triggered;
+        bool triggered = false;
         /// @brief whether an arriving container lets the vehicle continue
-        bool containerTriggered;
+        bool containerTriggered = false;
+        /// @brief whether coupling another vehicle (train) the vehicle continue
+        bool joinTriggered = false;
         /// @brief Information whether the stop has been reached
-        bool reached;
+        bool reached = false;
         /// @brief The number of still expected persons
-        int numExpectedPerson;
+        int numExpectedPerson = 0;
         /// @brief The number of still expected containers
-        int numExpectedContainer;
+        int numExpectedContainer = 0;
         /// @brief The time at which the vehicle is able to board another person
-        SUMOTime timeToBoardNextPerson;
+        SUMOTime timeToBoardNextPerson = 0;
         /// @brief The time at which the vehicle is able to load another container
-        SUMOTime timeToLoadNextContainer;
+        SUMOTime timeToLoadNextContainer = 0;
         /// @brief Whether this stop was triggered by a collision
-        bool collision;
+        bool collision = false;
+        /// @brief the maximum time at which persons may board this vehicle
+        SUMOTime endBoarding = SUMOTime_MAX;
 
         /// @brief Write the current stop configuration (used for state saving)
         void write(OutputDevice& dev) const;
@@ -960,6 +998,7 @@ public:
 
         /// @brief get a short description for showing in the gui
         std::string getDescription() const;
+
     private:
         /// @brief Invalidated assignment operator
         Stop& operator=(const Stop& src);
@@ -980,13 +1019,12 @@ public:
      */
     bool replaceParkingArea(MSParkingArea* parkingArea, std::string& errorMsg);
 
-    /** @brief Create a DriverState for the vehicle
-     */
-    void createDriverState();
-
-    /** @brief get the current parking area stop
+    /** @brief get the upcoming parking area stop or nullptr
      */
     MSParkingArea* getNextParkingArea();
+
+    /** @brief get the current  parking area stop or nullptr */
+    MSParkingArea* getCurrentParkingArea();
 
     /** @brief Returns whether the vehicle has to stop somewhere
      * @return Whether the vehicle has to stop somewhere
@@ -998,7 +1036,7 @@ public:
     /** @brief Whether this vehicle is equipped with a MSDriverState
      */
     inline bool hasDriverState() const {
-        return (myDriverState != nullptr);
+        return myDriverState != nullptr;
     }
 
     /** @brief Returns whether the vehicle is at a stop
@@ -1008,6 +1046,12 @@ public:
 
     /// @brief Returns the remaining stop duration for a stopped vehicle or 0
     SUMOTime remainingStopDuration() const;
+
+    /** @brief Returns whether the vehicle stops at the given stopping place */
+    bool stopsAt(MSStoppingPlace* stop) const;
+
+    /** @brief Returns whether the vehicle stops at the given edge */
+    bool stopsAtEdge(const MSEdge* edge) const;
 
     /** @brief Returns whether the vehicle will stop on the current edge
      */
@@ -1051,7 +1095,7 @@ public:
 
     /** @brief return whether the given position is within range of the current stop
      */
-    bool isStoppedInRange(double pos) const;
+    bool isStoppedInRange(const double pos, const double tolerance) const;
     /// @}
 
     int getLaneIndex() const;
@@ -1077,11 +1121,12 @@ public:
      */
     double processNextStop(double currentVelocity);
 
+
     /** @brief Returns the leader of the vehicle looking for a fixed distance.
      *
      * If the distance is not given it is calculated from the brake gap.
      * The gap returned does not include the minGap.
-     * @param dist    up to which distance to look for a leader
+     * @param dist    up to which distance to look at least for a leader
      * @return The leading vehicle together with the gap; (0, -1) if no leader was found.
      */
     std::pair<const MSVehicle* const, double> getLeader(double dist = 0) const;
@@ -1095,74 +1140,11 @@ public:
     double getTimeGapOnLane() const;
 
 
-    /// @name Emission retrieval
-    //@{
-
-    /** @brief Returns CO2 emission of the current state
-     * @return The current CO2 emission
+    /** @brief Adds a person or container to this vehicle
+     *
+     * @param[in] transportable The person/container to add
      */
-    double getCO2Emissions() const;
-
-
-    /** @brief Returns CO emission of the current state
-     * @return The current CO emission
-     */
-    double getCOEmissions() const;
-
-
-    /** @brief Returns HC emission of the current state
-     * @return The current HC emission
-     */
-    double getHCEmissions() const;
-
-
-    /** @brief Returns NOx emission of the current state
-     * @return The current NOx emission
-     */
-    double getNOxEmissions() const;
-
-
-    /** @brief Returns PMx emission of the current state
-     * @return The current PMx emission
-     */
-    double getPMxEmissions() const;
-
-
-    /** @brief Returns fuel consumption of the current state
-    * @return The current fuel consumption
-    */
-    double getFuelConsumption() const;
-
-
-    /** @brief Returns electricity consumption of the current state
-    * @return The current electricity consumption
-    */
-    double getElectricityConsumption() const;
-
-
-    /** @brief Returns noise emissions of the current state
-     * @return The noise produced
-     */
-    double getHarmonoise_NoiseEmissions() const;
-    //@}
-
-
-
-    /// @name Interaction with persons
-    //@{
-
-    /** @brief Adds a passenger
-     * @param[in] person The person to add
-     */
-    void addPerson(MSTransportable* person);
-
-    /// @name Interaction with containers
-    //@{
-
-    /** @brief Adds a container
-     * @param[in] container The container to add
-     */
-    void addContainer(MSTransportable* container);
+    void addTransportable(MSTransportable* transportable);
 
     /// @name Access to bool signals
     /// @{
@@ -1316,11 +1298,16 @@ public:
     */
     Stop& getNextStop();
 
+    /// @brief return parameters for the next stop (SUMOVehicle Interface)
+    const SUMOVehicleParameter::Stop* getNextStopParameter() const;
+
     /**
     * returns the list of stops not yet reached in the stop queue
     * @return the list of upcoming stops
     */
-    std::list<Stop> getMyStops();
+    inline const std::list<Stop>& getStops() {
+        return myStops;
+    }
 
     /**
     * resumes a vehicle from stopping
@@ -1328,6 +1315,8 @@ public:
     */
     bool resumeFromStopping();
 
+    /// @brief deletes the next stop if it exists
+    void abortNextStop();
 
     /// @brief update a vector of further lanes and return the new backPos
     double updateFurtherLanes(std::vector<MSLane*>& furtherLanes,
@@ -1340,24 +1329,139 @@ public:
     /// @brief get bounding polygon
     PositionVector getBoundingPoly() const;
 
-    /** @class Influencer
-     * @brief Changes the wished vehicle speed / lanes
-     *
-     * The class is used for passing velocities or velocity profiles obtained via TraCI to the vehicle.
-     * The speed adaptation is controlled by the stored speedTimeLine
-     * Additionally, the variables myConsiderSafeVelocity, myConsiderMaxAcceleration, and myConsiderMaxDeceleration
-     * control whether the safe velocity, the maximum acceleration, and the maximum deceleration
-     * have to be regarded.
-     *
-     * Furthermore this class is used to affect lane changing decisions according to
-     * LaneChangeMode and any given laneTimeLine
+    /** @enum ManoeuvreType
+     *  @brief  flag identifying which, if any, manoeuvre is in progress
      */
-    class Influencer {
+    enum ManoeuvreType {
+        /// @brief Manoeuvre into stopping place
+        MANOEUVRE_ENTRY,
+        /// @brief Manoeuvre out of stopping place
+        MANOEUVRE_EXIT,
+        /// @brief not manouevring
+        MANOEUVRE_NONE
+    };
+
+    /// @brief accessor function to myManoeuvre equivalent
+    /// @note Setup of exit manoeuvre is invoked from MSVehicleTransfer
+    bool setExitManoeuvre();
+    /// @brief accessor function to myManoeuvre equivalent
+    void setManoeuvreType(const MSVehicle::ManoeuvreType mType);
+
+    /// @brief accessor function to myManoeuvre equivalent
+    bool manoeuvreIsComplete() const;
+    /// @brief accessor function to myManoeuvre equivalent
+    MSVehicle::ManoeuvreType getManoeuvreType() const;
+
+
+    /** @class Manoeuvre
+      * @brief  Container for manouevering time associated with stopping.
+      *
+      *  Introduced to cater for lane blocking whilst entering stop/leaving stop
+      *   and assure that emissions during manoeuvre are included in model
+      */
+    class Manoeuvre {
+
+    public:
+        /// Constructor.
+        Manoeuvre();
+
+        /// Copy constructor.
+        Manoeuvre(const Manoeuvre& manoeuvre);
+
+        /// Assignment operator.
+        Manoeuvre& operator=(const Manoeuvre& manoeuvre);
+
+        /// Operator !=
+        bool operator!=(const Manoeuvre& manoeuvre);
+
+        /// @brief Setup the entry manoeuvre for this vehicle (Sets completion time and manoeuvre type)
+        bool configureEntryManoeuvre(MSVehicle* veh);
+
+        /// @brief Setup the myManoeuvre for exiting (Sets completion time and manoeuvre type)
+        bool configureExitManoeuvre(MSVehicle* veh);
+
+        /// @brief Configure an entry manoeuvre if nothing is configured - otherwise check if complete
+        bool entryManoeuvreIsComplete(MSVehicle* veh);
+
+        /// @brief Check if specific manoeuver is ongoing and whether the completion time is beyond currentTime
+        bool
+        manoeuvreIsComplete(const ManoeuvreType checkType) const;
+
+        /// @brief Check if any manoeuver is ongoing and whether the completion time is beyond currentTime
+        bool
+        manoeuvreIsComplete() const;
+
+        /// @brief Accessor for GUI rotation step when parking (radians)
+        double getGUIIncrement() const;
+
+        /// @brief Accessor (get) for manoeuvre type
+        MSVehicle::ManoeuvreType getManoeuvreType() const;
+
+        /// @brief Accessor (set) for manoeuvre type
+        void setManoeuvreType(const MSVehicle::ManoeuvreType mType);
+
     private:
+        /// @brief  The name of the vehicle associated with the Manoeuvre  - for debug output
+        std::string myManoeuvreVehicleID;
+
+        /// @brief  The name of the stop associated with the Manoeuvre  - for debug output
+        std::string myManoeuvreStop;
+
+        /// @brief Time at which the Manoeuvre for this stop started
+        SUMOTime myManoeuvreStartTime;
+
+        /// @brief Time at which this manoeuvre should complete
+        SUMOTime myManoeuvreCompleteTime;
+
+        /// @brief Manoeuvre type - currently entry, exit or none
+        ManoeuvreType myManoeuvreType;
+
+        // @brief Angle (radians) through which parking vehicle moves in each sim step
+        double myGUIIncrement;
+    };
+
+    // Current or previous (completed) manoeuvre
+    Manoeuvre myManoeuvre;
+
+    /** @class Influencer
+      * @brief Changes the wished vehicle speed / lanes
+      *
+      * The class is used for passing velocities or velocity profiles obtained via TraCI to the vehicle.
+      * The speed adaptation is controlled by the stored speedTimeLine
+      * Additionally, the variables myConsiderSafeVelocity, myConsiderMaxAcceleration, and myConsiderMaxDeceleration
+      * control whether the safe velocity, the maximum acceleration, and the maximum deceleration
+      * have to be regarded.
+      *
+      * Furthermore this class is used to affect lane changing decisions according to
+      * LaneChangeMode and any given laneTimeLine
+      */
+    class Influencer : public BaseInfluencer {
+    private:
+
+        /// @brief A static instance of this class in GapControlState deactivates gap control
+        ///        for vehicles whose reference vehicle is removed from the road network
+        class GapControlVehStateListener : public MSNet::VehicleStateListener {
+            /** @brief Called if a vehicle changes its state
+             * @param[in] vehicle The vehicle which changed its state
+             * @param[in] to The state the vehicle has changed to
+             * @param[in] info Additional information on the state change
+             * @note This deactivates the corresponding gap control when a reference vehicle is removed.
+             */
+            void vehicleStateChanged(const SUMOVehicle* const vehicle, MSNet::VehicleState to, const std::string& info = "");
+        };
+
+
         /// @brief Container for state and parameters of the gap control
         struct GapControlState {
             GapControlState();
-            void activate(double tauOriginal, double tauTarget, double additionalGap, double duration, double changeRate, double maxDecel);
+            virtual ~GapControlState();
+            /// @brief Static initalization (adds vehicle state listener)
+            static void init();
+            /// @brief Static cleanup (removes vehicle state listener)
+            static void cleanup();
+            /// @brief Start gap control with given params
+            void activate(double tauOriginal, double tauTarget, double additionalGap, double duration, double changeRate, double maxDecel, const MSVehicle* refVeh);
+            /// @brief Stop gap control
             void deactivate();
             /// @brief Original value for the desired headway (will be reset after duration has expired)
             double tauOriginal;
@@ -1376,6 +1480,8 @@ public:
             double changeRate;
             /// @brief Maximal deceleration to be applied due to the adapted headway
             double maxDecel;
+            /// @brief reference vehicle for the gap - if it is null, the current leader on the ego's lane is used as a reference
+            const MSVehicle* referenceVeh;
             /// @brief Whether the gap control is active
             bool active;
             /// @brief Whether the desired gap was attained during the current activity phase (induces the remaining duration to decrease)
@@ -1386,15 +1492,26 @@ public:
             SUMOTime lastUpdate;
             /// @brief cache storage for the headway increments of the current operation
             double timeHeadwayIncrement, spaceHeadwayIncrement;
+
+            /// @brief stores reference vehicles currently in use by a gapController
+            static std::map<const MSVehicle*, GapControlState*> refVehMap;
+
+        private:
+            static GapControlVehStateListener vehStateListener;
         };
+
+
     public:
         /// @brief Constructor
         Influencer();
 
-
         /// @brief Destructor
         ~Influencer();
 
+        /// @brief Static initalization
+        static void init();
+        /// @brief Static cleanup
+        static void cleanup();
 
         /** @brief Sets a new velocity timeline
          * @param[in] speedTimeLine The time line of speeds to use
@@ -1403,7 +1520,7 @@ public:
 
         /** @brief Activates the gap control with the given parameters, @see GapControlState
          */
-        void activateGapController(double originalTau, double newTimeHeadway, double newSpaceHeadway, double duration, double changeRate, double maxDecel);
+        void activateGapController(double originalTau, double newTimeHeadway, double newSpaceHeadway, double duration, double changeRate, double maxDecel, MSVehicle* refVeh = nullptr);
 
         /** @brief Deactivates the gap control
          */
@@ -1413,6 +1530,11 @@ public:
          * @param[in] laneTimeLine The time line of lanes to use
          */
         void setLaneTimeLine(const std::vector<std::pair<SUMOTime, int> >& laneTimeLine);
+
+        /** @brief Adapts lane timeline when moving to a new lane and the lane index changes
+         * @param[in] indexShift The change in laneIndex
+         */
+        void adaptLaneTimeLine(int indexShift);
 
         /** @brief Sets a new sublane-change request
          * @param[in] latDist The lateral distance for changing
@@ -1425,10 +1547,6 @@ public:
         /// @brief return the current lane change mode
         int getLaneChangeMode() const;
 
-        /// @brief return the current routing mode
-        int getRoutingMode() const {
-            return myRoutingMode;
-        }
         SUMOTime getLaneTimeLineDuration();
 
         SUMOTime getLaneTimeLineEnd();
@@ -1508,13 +1626,6 @@ public:
          */
         void setLaneChangeMode(int value);
 
-        /** @brief Sets routing behavior
-         * @param[in] value an enum value controlling the different modes
-         */
-        void setRoutingMode(int value) {
-            myRoutingMode = value;
-        }
-
         /** @brief Returns the originally longitudinal speed to use
          * @return The speed given before influence or -1 if no influence is active
          */
@@ -1557,8 +1668,6 @@ public:
         bool ignoreOverlap() const {
             return myTraciLaneChangePriority == LCP_ALWAYS;
         }
-
-        SUMOAbstractRouter<MSEdge, SUMOVehicle>& getRouterTT() const;
 
     private:
         /// @brief The velocity time line to apply
@@ -1622,9 +1731,6 @@ public:
         // @brief the signals set via TraCI
         int myTraCISignals;
 
-        ///@brief routing mode (see TraCIConstants.h)
-        int myRoutingMode;
-
     };
 
 
@@ -1633,12 +1739,14 @@ public:
      * If no influencer was existing before, one is built, first
      * @return Reference to this vehicle's speed influencer
      */
+    BaseInfluencer& getBaseInfluencer();
     Influencer& getInfluencer();
 
+    const BaseInfluencer* getBaseInfluencer() const;
     const Influencer* getInfluencer() const;
 
     bool hasInfluencer() const {
-        return myInfluencer != 0;
+        return myInfluencer != nullptr;
     }
 
     /// @brief allow TraCI to influence a lane change decision
@@ -1658,7 +1766,13 @@ public:
     static int nextLinkPriority(const std::vector<MSLane*>& conts);
 
     /// @brief whether the given vehicle must be followed at the given junction
-    bool isLeader(const MSLink* link, const MSVehicle* veh) const; 
+    bool isLeader(const MSLink* link, const MSVehicle* veh) const;
+
+    // @brief get the position of the back bumper;
+    const Position getBackPosition() const;
+
+    /// @brief whether this vehicle is except from collision checks
+    bool ignoreCollision();
 
     /// @name state io
     //@{
@@ -1704,7 +1818,7 @@ protected:
      *  @param[in/out] vSafeMin The minimal safe (or admissible) velocity (used her for ensuring the clearing of junctions in time).
      *  @param[in/out] vSafeMinDist The distance to the next link, which should either be crossed this step, or in front of which the vehicle need to stop.
      */
-    void processLinkAproaches(double& vSafe, double& vSafeMin, double& vSafeMinDist);
+    void processLinkApproaches(double& vSafe, double& vSafeMin, double& vSafeMinDist);
 
 
     /** @brief This method checks if the vehicle has advanced over one or several lanes
@@ -1744,8 +1858,14 @@ protected:
      */
     void updateTimeLoss(double vNext);
 
-    /// @brief whether the vehicle is a train that can reverse its direction at the current point in its route
-    bool canReverse() const;
+    /* @brief Check whether the vehicle is a train that can reverse its direction at the current point in its route
+     * and return the speed in preparation for reversal
+     *
+     *  @param[out] canReverse
+     *  @param[in] speedThreshold
+     *  @return speed for reversal
+     */
+    double checkReversal(bool& canReverse, double speedThreshold = SUMO_const_haltingSpeed, double seen = 0) const;
 
     /** @brief sets the braking lights on/off
      */
@@ -1763,8 +1883,12 @@ protected:
     void updateOccupancyAndCurrentBestLane(const MSLane* startLane);
 
     /** @brief Returns the list of still pending stop edges
+     * also returns the first and last stop position
      */
-    const ConstMSEdgeVector getStopEdges() const;
+    const ConstMSEdgeVector getStopEdges(double& firstPos, double& lastPos) const;
+
+    /// @brief return list of route indices for the remaining stops
+    std::vector<std::pair<int, double> > getStopIndices() const;
 
     /// @brief get distance for coming to a stop (used for rerouting checks)
     double getBrakeGap() const;
@@ -1774,6 +1898,17 @@ protected:
 
     /// @brief register vehicle for drawing while outside the network
     virtual void drawOutsideNetwork(bool /*add*/) {};
+
+    /// @brief board persons and load transportables at the given stop
+    void boardTransportables(Stop& stop); 
+
+    /// @brief try joining the given vehicle to the rear of this one (to resolve joinTriggered)
+    bool joinTrainPart(MSVehicle* veh);
+
+    /// @brief try joining the given vehicle to the front of this one (to resolve joinTriggered)
+    bool joinTrainPartFront(MSVehicle* veh);
+
+protected:
 
     /// @brief The time the vehicle waits (is not faster than 0.1m/s) in seconds
     SUMOTime myWaitingTime;
@@ -1786,8 +1921,7 @@ protected:
     State myState;
 
     /// @brief This vehicle's driver state @see MSDriverState
-//    std::shared_ptr<MSDriverState> myDriverState;
-    std::shared_ptr<MSSimpleDriverState> myDriverState;
+    MSDevice_DriverState* myDriverState;
 
     /// @brief The flag myActionStep indicates whether the current time step is an action point for the vehicle.
     bool myActionStep;
@@ -1840,6 +1974,9 @@ protected:
     /// @brief Whether the vehicle is on the network (not parking, teleported, vaporized, or arrived)
     bool myAmOnNet;
 
+    /// @brief Whether the vehicle is trying to enter the network (eg after parking so engine is running)
+    bool myAmIdling;
+
     /// @brief Whether this vehicle is registered as waiting for a person (for deadlock-recognition)
     bool myAmRegisteredAsWaitingForPerson;
 
@@ -1851,7 +1988,7 @@ protected:
     /// @brief the angle in radians (@todo consider moving this into myState)
     double myAngle;
 
-    /// @brief distance to the next stop or -1 if there is none
+    /// @brief distance to the next stop or doubleMax if there is none
     double myStopDist;
 
     /// @brief amount of time for which the vehicle is immune from collisions
@@ -1945,7 +2082,7 @@ protected:
     void checkRewindLinkLanes(const double lengthsInFront, DriveItemVector& lfLinks) const;
 
     /// @brief unregister approach from all upcoming links
-    void removeApproachingInformation(DriveItemVector& lfLinks) const;
+    void removeApproachingInformation(const DriveItemVector& lfLinks) const;
 
 
     /// @brief estimate leaving speed when accelerating across a link
@@ -2001,9 +2138,6 @@ protected:
     // @brief return the lane on which the back of this vehicle resides
     const MSLane* getBackLane() const;
 
-    // @brief get the position of the back bumper;
-    const Position getBackPosition() const;
-
     /** @brief updates the vehicles state, given a next value for its speed.
      *         This value can be negative in case of the ballistic update to indicate
      *         a stop within the next timestep. (You can call this a 'hack' to
@@ -2020,16 +2154,17 @@ protected:
     /// @brief decide whether a red (or yellow light) may be ignore
     bool ignoreRed(const MSLink* link, bool canBrake) const;
 
-private:
-    /* @brief The vehicle's knowledge about edge efforts/travel times; @see MSEdgeWeightsStorage
-     * @note member is initialized on first access */
-    mutable MSEdgeWeightsStorage* myEdgeWeights;
 
+    /// @brief check whether all stop.edge MSRouteIterators are valid and in order
+    bool haveValidStopEdges() const;
+
+private:
     /// @brief The per vehicle variables of the car following model
     MSCFModel::VehicleVariables* myCFVariables;
 
     /// @brief An instance of a velocity/lane influencing instance; built in "getInfluencer"
     Influencer* myInfluencer;
+
 
 private:
     /// @brief invalidated default constructor
@@ -2041,12 +2176,4 @@ private:
     /// @brief invalidated assignment operator
     MSVehicle& operator=(const MSVehicle&);
 
-    MSEdgeWeightsStorage& _getWeightsStorage() const;
-
 };
-
-
-#endif
-
-/****************************************************************************/
-

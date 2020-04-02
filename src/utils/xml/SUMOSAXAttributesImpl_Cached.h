@@ -1,26 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2007-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2007-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    SUMOSAXAttributesImpl_Cached.h
 /// @author  Jakob Erdmann
 /// @date    Dec 2016
-/// @version $Id$
 ///
 // Encapsulated xml-attributes that use a map from string-attr-names to string-attr-values as backend
 /****************************************************************************/
-#ifndef SUMOSAXAttributesImpl_Cached_h
-#define SUMOSAXAttributesImpl_Cached_h
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
+#pragma once
 #include <config.h>
 
 #include <string>
@@ -45,20 +42,26 @@ class SUMOSAXAttributesImpl_Cached : public SUMOSAXAttributes {
 public:
     /** @brief Constructor
      *
-     * @param[in] attrs The encapsulated xerces-attributes
-     * @param[in] predefinedTags Map of attribute ids to their xerces-representation
+     * @param[in] attrs The encapsulated xerces-attributes (string-string)
      * @param[in] predefinedTagsMML Map of attribute ids to their (readable) string-representation
+     * @param[in] objectType object type in string format
      */
     SUMOSAXAttributesImpl_Cached(const std::map<std::string, std::string>& attrs,
                                  const std::map<int, std::string>& predefinedTagsMML,
                                  const std::string& objectType);
 
+    /** @brief Constructor
+     *
+     * @param[in] attrs The encapsulated xerces-attributes (SumoXMLAttr-string)
+     * @param[in] predefinedTagsMML Map of attribute ids to their (readable) string-representation
+     * @param[in] objectType object type in string format
+     */
+    SUMOSAXAttributesImpl_Cached(const std::map<SumoXMLAttr, std::string>& attrs,
+                                 const std::map<int, std::string>& predefinedTagsMML,
+                                 const std::string& objectType);
 
     /// @brief Destructor
-    virtual ~SUMOSAXAttributesImpl_Cached();
-
-
-
+    ~SUMOSAXAttributesImpl_Cached();
 
     /// @name methods for retrieving attribute values
     /// @{
@@ -69,7 +72,6 @@ public:
      * @return Whether the attribute is within the attributes
      */
     bool hasAttribute(int id) const;
-
 
     /**
      * @brief Returns the bool-value of the named (by its enum-value) attribute
@@ -88,7 +90,6 @@ public:
      */
     bool getBool(int id) const;
 
-
     /**
      * @brief Returns the int-value of the named (by its enum-value) attribute
      *
@@ -106,7 +107,6 @@ public:
      */
     int getInt(int id) const;
 
-
     /**
      * @brief Returns the long-value of the named (by its enum-value) attribute
      *
@@ -123,7 +123,6 @@ public:
      * @exception NumberFormatException If the attribute value can not be parsed to an int
      */
     long long int getLong(int id) const;
-
 
     /**
      * @brief Returns the string-value of the named (by its enum-value) attribute
@@ -151,9 +150,7 @@ public:
      * @return The attribute's value as a string, if it could be read and parsed
      * @exception EmptyData If the attribute is not known or the attribute value is an empty string
      */
-    std::string getStringSecure(int id,
-                                const std::string& def) const;
-
+    std::string getStringSecure(int id, const std::string& def) const;
 
     /**
      * @brief Returns the double-value of the named (by its enum-value) attribute
@@ -172,12 +169,8 @@ public:
      */
     double getFloat(int id) const;
 
-
-    /**
-     * @brief Returns the information whether the named attribute is within the current list
-     */
+    /// @brief Returns the information whether the named attribute is within the current list
     bool hasAttribute(const std::string& id) const;
-
 
     /**
      * @brief Returns the double-value of the named attribute
@@ -196,7 +189,6 @@ public:
      */
     double getFloat(const std::string& id) const;
 
-
     /**
      * @brief Returns the string-value of the named (by its enum-value) attribute
      *
@@ -208,8 +200,7 @@ public:
      */
     std::string getStringSecure(const std::string& id,
                                 const std::string& def) const;
-    //}
-
+    /// @}
 
     /**
      * @brief Returns the value of the named attribute
@@ -218,7 +209,6 @@ public:
      * @return The attribute's value as a SumoXMLEdgeFunc, if it could be read and parsed
      */
     SumoXMLEdgeFunc getEdgeFunc(bool& ok) const;
-
 
     /**
      * @brief Returns the value of the named attribute
@@ -229,7 +219,10 @@ public:
     SumoXMLNodeType getNodeType(bool& ok) const;
 
     /// @brief returns rightOfWay method
-    RightOfWay getRightOfWay(bool& ok) const; 
+    RightOfWay getRightOfWay(bool& ok) const;
+
+    /// @brief returns fringe type
+    FringeType getFringeType(bool& ok) const;
 
     /**
      * @brief Returns the value of the named attribute
@@ -247,20 +240,12 @@ public:
      */
     PositionVector getShape(int attr) const;
 
-
     /** @brief Tries to read given attribute assuming it is a Boundary
      *
      * @param[in] attr The id of the attribute to read
      * @return The read value if given and not empty; "" if an error occurred
      */
     Boundary getBoundary(int attr) const;
-
-    /** @brief Tries to read given attribute assuming it is a string vector
-     *
-     * @param[in] attr The id of the attribute to read
-     * @return The read value if given and not empty; empty vector if an error occurred
-     */
-    std::vector<std::string> getStringVector(int attr) const;
 
     /** @brief Converts the given attribute id into a man readable string
      *
@@ -271,12 +256,15 @@ public:
      */
     std::string getName(int attr) const;
 
-
     /** @brief Prints all attribute names and values into the given stream
      *
      * @param[in] os The stream to use
      */
     void serialize(std::ostream& os) const;
+
+    /** @brief Retrieves all attribute names
+     */
+    std::vector<std::string> getAttributeNames() const;
 
     /// @brief return a new deep-copy attributes object
     SUMOSAXAttributes* clone() const;
@@ -290,7 +278,6 @@ private:
      */
     const std::string& getAttributeValueSecure(int id) const;
 
-
 private:
     /// @brief The encapsulated attributes
     std::map<std::string, std::string> myAttrs;
@@ -298,19 +285,10 @@ private:
     /// @brief Map of attribute ids to their (readable) string-representation
     const std::map<int, std::string>& myPredefinedTagsMML;
 
-
 private:
     /// @brief Invalidated copy constructor.
-    SUMOSAXAttributesImpl_Cached(const SUMOSAXAttributesImpl_Cached& src);
+    SUMOSAXAttributesImpl_Cached(const SUMOSAXAttributesImpl_Cached& src) = delete;
 
     /// @brief Invalidated assignment operator.
-    SUMOSAXAttributesImpl_Cached& operator=(const SUMOSAXAttributesImpl_Cached& src);
-
-
+    SUMOSAXAttributesImpl_Cached& operator=(const SUMOSAXAttributesImpl_Cached& src) = delete;
 };
-
-
-#endif
-
-/****************************************************************************/
-

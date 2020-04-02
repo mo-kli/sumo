@@ -1,25 +1,23 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    GUIParkingArea.cpp
 /// @author  Mirco Sturari
 /// @author  Jakob Erdmann
 /// @date    Tue, 19.01.2016
-/// @version $Id$
 ///
 // A area where vehicles can park next to the road (gui version)
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #include <string>
@@ -59,7 +57,7 @@ GUIParkingArea::GUIParkingArea(const std::string& id, const std::vector<std::str
                                bool onRoad) :
     MSParkingArea(id, lines, lane, frompos, topos, capacity, width, length, angle, name, onRoad),
     GUIGlObject_AbstractAdd(GLO_PARKING_AREA, id) {
-    const double offsetSign = MSNet::getInstance()->lefthand() ? -1 : 1;
+    const double offsetSign = MSGlobals::gLefthand ? -1 : 1;
     myShapeRotations.reserve(myShape.size() - 1);
     myShapeLengths.reserve(myShape.size() - 1);
     int e = (int) myShape.size() - 1;
@@ -102,13 +100,14 @@ GUIParameterTableWindow*
 GUIParkingArea::getParameterWindow(GUIMainWindow& app,
                                    GUISUMOAbstractView&) {
     GUIParameterTableWindow* ret =
-        new GUIParameterTableWindow(app, *this, 5);
+        new GUIParameterTableWindow(app, *this);
     // add items
     ret->mkItem("name", false, getMyName());
     ret->mkItem("begin position [m]", false, myBegPos);
     ret->mkItem("end position [m]", false, myEndPos);
     ret->mkItem("occupancy [#]", true, getOccupancy());
     ret->mkItem("capacity [#]", false, getCapacity());
+    ret->mkItem("alternatives [#]", false, getNumAlternatives());
     // close building
     ret->closeBuilding();
     return ret;
@@ -182,7 +181,7 @@ GUIParkingArea::drawGL(const GUIVisualizationSettings& s) const {
         glTranslated(0, 0, .1);
         GLHelper::setColor(grey);
         GLHelper::drawFilledCircle((double) 0.9, noPoints);
-        if (s.scale * exaggeration >= 4.5) {
+        if (s.drawDetail(s.detailSettings.stoppingPlaceText, exaggeration)) {
             GLHelper::drawText("P", Position(), .1, 1.6, blue, mySignRot);
         }
     }
@@ -192,10 +191,6 @@ GUIParkingArea::drawGL(const GUIVisualizationSettings& s) const {
     }
     glPopName();
     drawName(getCenteringBoundary().getCenter(), s.scale, s.addName, s.angle);
-    for (std::vector<MSTransportable*>::const_iterator i = myWaitingTransportables.begin(); i != myWaitingTransportables.end(); ++i) {
-        glTranslated(0, 1, 0); // make multiple containers viewable
-        static_cast<GUIContainer*>(*i)->drawGL(s);
-    }
     // draw parking vehicles (their lane might not be within drawing range. if it is, they are drawn twice)
     myLane.getVehiclesSecure();
     for (std::set<const MSVehicle*>::const_iterator v = myLane.getParkingVehicles().begin(); v != myLane.getParkingVehicles().end(); ++v) {
@@ -205,12 +200,12 @@ GUIParkingArea::drawGL(const GUIVisualizationSettings& s) const {
 
 }
 
-void 
+void
 GUIParkingArea::addLotEntry(double x, double y, double z,
-        double width, double length, double angle) {
+                            double width, double length, double angle) {
     MSParkingArea::addLotEntry(x, y, z, width, length, angle);
     Boundary b;
-    b.add(Position(x,y));
+    b.add(Position(x, y));
     b.grow(MAX2(width, length) + 5);
     myBoundary.add(b);
 }
@@ -221,6 +216,10 @@ GUIParkingArea::getCenteringBoundary() const {
 }
 
 
+const std::string
+GUIParkingArea::getOptionalName() const {
+    return myName;
+}
+
 
 /****************************************************************************/
-

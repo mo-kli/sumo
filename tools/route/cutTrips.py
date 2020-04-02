@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2012-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2012-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    cutTrips.py
 # @author  Jakob Erdmann
 # @date    2017-04-11
-# @version $Id$
 
 """
 Cut down trips from a large scenario to a sub-scenario.
@@ -24,7 +27,6 @@ from __future__ import print_function
 import os
 import sys
 import codecs
-import copy
 
 from optparse import OptionParser
 from collections import defaultdict
@@ -70,13 +72,13 @@ def cut_trips(aEdges, options, validTaz):
         print("Parsing trips from %s" % routeFile)
         for trip in parse(routeFile, 'trip'):
             num_trips += 1
-            if trip.attr_from is not None and not trip.attr_from in areaEdges:
+            if trip.attr_from is not None and trip.attr_from not in areaEdges:
                 continue
-            if trip.to is not None and not trip.to in areaEdges:
+            if trip.to is not None and trip.to not in areaEdges:
                 continue
-            if trip.fromTaz is not None and not trip.fromTaz in validTaz:
+            if trip.fromTaz is not None and trip.fromTaz not in validTaz:
                 continue
-            if trip.toTaz is not None and not trip.toTaz in validTaz:
+            if trip.toTaz is not None and trip.toTaz not in validTaz:
                 continue
             yield float(trip.depart), trip
             num_returned += 1

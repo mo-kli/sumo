@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2002-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2002-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    ROVehicle.cpp
 /// @author  Daniel Krajzewicz
@@ -13,30 +17,26 @@
 /// @author  Michael Behrisch
 /// @author  Jakob Erdmann
 /// @date    Sept 2002
-/// @version $Id$
 ///
 // A vehicle as used by router
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
+#include <string>
+#include <iostream>
 #include <utils/common/StringUtils.h>
 #include <utils/common/ToString.h>
 #include <utils/common/MsgHandler.h>
+#include <utils/geom/GeoConvHelper.h>
 #include <utils/vehicle/SUMOVTypeParameter.h>
 #include <utils/options/OptionsCont.h>
 #include <utils/iodevices/OutputDevice.h>
-#include <string>
-#include <iostream>
 #include "RORouteDef.h"
-#include "ROVehicle.h"
 #include "RORoute.h"
 #include "ROHelper.h"
 #include "RONet.h"
+#include "ROLane.h"
+#include "ROVehicle.h"
 
 
 // ===========================================================================
@@ -123,7 +123,7 @@ ROVehicle:: getDepartEdge() const {
 void
 ROVehicle::computeRoute(const RORouterProvider& provider,
                         const bool removeLoops, MsgHandler* errorHandler) {
-    SUMOAbstractRouter<ROEdge, ROVehicle>& router = provider.getVehicleRouter();
+    SUMOAbstractRouter<ROEdge, ROVehicle>& router = provider.getVehicleRouter(getVClass());
     std::string noRouteMsg = "The vehicle '" + getID() + "' has no valid route.";
     RORouteDef* const routeDef = getRouteDefinition();
     // check if the route definition is valid
@@ -135,7 +135,9 @@ ROVehicle::computeRoute(const RORouterProvider& provider,
     RORoute* current = routeDef->buildCurrentRoute(router, getDepartureTime(), *this);
     if (current == nullptr || current->size() == 0) {
         delete current;
-        errorHandler->inform(noRouteMsg);
+        if (current == nullptr || !routeDef->discardSilent()) {
+            errorHandler->inform(noRouteMsg);
+        }
         myRoutingSuccess = false;
         return;
     }
@@ -201,11 +203,109 @@ ROVehicle::saveAsXML(OutputDevice& os, OutputDevice* const typeos, bool asAltern
         getType()->saved = asAlternatives;
     }
 
+    const bool writeTrip = options.exists("write-trips") && options.getBool("write-trips");
+    const bool writeGeoTrip = writeTrip && options.getBool("write-trips.geo");
+    const bool writeJunctions = writeTrip && options.getBool("write-trips.junctions");
     // write the vehicle (new style, with included routes)
-    getParameter().write(os, options);
+    getParameter().write(os, options, writeTrip ? SUMO_TAG_TRIP : SUMO_TAG_VEHICLE);
 
     // save the route
-    myRoute->writeXMLDefinition(os, this, asAlternatives, options.getBool("exit-times"));
+    if (writeTrip) {
+        const ConstROEdgeVector edges = myRoute->getFirstRoute()->getEdgeVector();
+        const ROEdge* from = nullptr;
+        const ROEdge* to = nullptr;
+        if (edges.size() > 0) {
+            if (edges.front()->isTazConnector()) {
+                if (edges.size() > 1) {
+                    from = edges[1];
+                    if (from->isTazConnector() && writeJunctions && edges.front()->getSuccessors().size() > 0) {
+                        // routing was skipped
+                        from = edges.front()->getSuccessors(getVClass()).front();
+                    }
+                }
+            } else {
+                from = edges[0];
+            }
+            if (edges.back()->isTazConnector()) {
+                if (edges.size() > 1) {
+                    to = edges[edges.size() - 2];
+                    if (to->isTazConnector() && writeJunctions && edges.back()->getPredecessors().size() > 0) {
+                        // routing was skipped
+                        to = edges.back()->getPredecessors().front();
+                    }
+                }
+            } else {
+                to = edges[edges.size() - 1];
+            }
+        }
+        if (from != nullptr) {
+            if (writeGeoTrip) {
+                Position fromPos = from->getLanes()[0]->getShape().positionAtOffset2D(0);
+                if (GeoConvHelper::getFinal().usingGeoProjection()) {
+                    os.setPrecision(gPrecisionGeo);
+                    GeoConvHelper::getFinal().cartesian2geo(fromPos);
+                    os.writeAttr(SUMO_ATTR_FROMLONLAT, fromPos);
+                    os.setPrecision(gPrecision);
+                } else {
+                    os.writeAttr(SUMO_ATTR_FROMXY, fromPos);
+                }
+            } else if (writeJunctions) {
+                os.writeAttr(SUMO_ATTR_FROMJUNCTION, from->getFromJunction()->getID());
+            } else {
+                os.writeAttr(SUMO_ATTR_FROM, from->getID());
+            }
+        }
+        if (to != nullptr) {
+            if (writeGeoTrip) {
+                Position toPos = to->getLanes()[0]->getShape().positionAtOffset2D(to->getLanes()[0]->getShape().length2D());
+                if (GeoConvHelper::getFinal().usingGeoProjection()) {
+                    os.setPrecision(gPrecisionGeo);
+                    GeoConvHelper::getFinal().cartesian2geo(toPos);
+                    os.writeAttr(SUMO_ATTR_TOLONLAT, toPos);
+                    os.setPrecision(gPrecision);
+                } else {
+                    os.writeAttr(SUMO_ATTR_TOXY, toPos);
+                }
+            } else if (writeJunctions) {
+                os.writeAttr(SUMO_ATTR_TOJUNCTION, to->getToJunction()->getID());
+            } else {
+                os.writeAttr(SUMO_ATTR_TO, to->getID());
+            }
+        }
+        if (getParameter().via.size() > 0) {
+            std::vector<std::string> viaOut;
+            SumoXMLAttr viaAttr = (writeGeoTrip
+                                   ? (GeoConvHelper::getFinal().usingGeoProjection() ? SUMO_ATTR_VIALONLAT : SUMO_ATTR_VIAXY)
+                                   : (writeJunctions ? SUMO_ATTR_VIAJUNCTIONS : SUMO_ATTR_VIA));
+            for (const std::string& viaID : getParameter().via) {
+                const ROEdge* viaEdge = RONet::getInstance()->getEdge(viaID);
+                if (viaEdge->isTazConnector()) {
+                    if (viaEdge->getPredecessors().size() == 0) {
+                        continue;
+                    }
+                    // XXX used edge that was used in route
+                    viaEdge = viaEdge->getPredecessors().front();
+                }
+                assert(viaEdge != nullptr);
+                if (writeGeoTrip) {
+                    Position viaPos = viaEdge->getLanes()[0]->getShape().positionAtOffset2D(viaEdge->getLanes()[0]->getShape().length2D() / 2);
+                    if (GeoConvHelper::getFinal().usingGeoProjection()) {
+                        GeoConvHelper::getFinal().cartesian2geo(viaPos);
+                        viaOut.push_back(toString(viaPos, gPrecisionGeo));
+                    } else {
+                        viaOut.push_back(toString(viaPos, gPrecision));
+                    }
+                } else if (writeJunctions) {
+                    viaOut.push_back(viaEdge->getToJunction()->getID());
+                } else {
+                    viaOut.push_back(viaEdge->getID());
+                }
+            }
+            os.writeAttr(viaAttr, viaOut);
+        }
+    } else {
+        myRoute->writeXMLDefinition(os, this, asAlternatives, options.getBool("exit-times"));
+    }
     for (std::vector<SUMOVehicleParameter::Stop>::const_iterator stop = getParameter().stops.begin(); stop != getParameter().stops.end(); ++stop) {
         stop->write(os);
     }
@@ -215,4 +315,3 @@ ROVehicle::saveAsXML(OutputDevice& os, OutputDevice* const typeos, bool asAltern
 
 
 /****************************************************************************/
-

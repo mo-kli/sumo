@@ -1,11 +1,15 @@
 /****************************************************************************/
 // Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-// Copyright (C) 2001-2018 German Aerospace Center (DLR) and others.
-// This program and the accompanying materials
-// are made available under the terms of the Eclipse Public License v2.0
-// which accompanies this distribution, and is available at
-// http://www.eclipse.org/legal/epl-v20.html
-// SPDX-License-Identifier: EPL-2.0
+// Copyright (C) 2001-2020 German Aerospace Center (DLR) and others.
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// https://www.eclipse.org/legal/epl-2.0/
+// This Source Code may also be made available under the following Secondary
+// Licenses when the conditions for such availability set forth in the Eclipse
+// Public License 2.0 are satisfied: GNU General Public License, version 2
+// or later which is available at
+// https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 /****************************************************************************/
 /// @file    guisim_main.cpp
 /// @author  Daniel Krajzewicz
@@ -13,15 +17,9 @@
 /// @author  Michael Behrisch
 /// @author  Felix Brack
 /// @date    Tue, 20 Nov 2001
-/// @version $Id$
 ///
 // Main for GUISIM
 /****************************************************************************/
-
-
-// ===========================================================================
-// included modules
-// ===========================================================================
 #include <config.h>
 
 #ifdef HAVE_VERSION_H
@@ -40,6 +38,7 @@
 #include <utils/common/FileHelpers.h>
 #include <utils/common/MsgHandler.h>
 #include <utils/common/SystemFrame.h>
+#include <utils/foxtools/MsgHandlerSynchronized.h>
 #include <utils/xml/XMLSubSys.h>
 #include <gui/GUIApplicationWindow.h>
 #include <utils/gui/windows/GUIAppEnum.h>
@@ -53,8 +52,7 @@
 int
 main(int argc, char** argv) {
     // make the output aware of threading
-    MFXMutex lock;
-    MsgHandler::assignLock(&lock);
+    MsgHandler::setFactory(&MsgHandlerSynchronized::create);
     // get the options
     OptionsCont& oc = OptionsCont::getOptions();
     // give some application descriptions
@@ -87,7 +85,7 @@ main(int argc, char** argv) {
         gSchemeStorage.init(&application);
         window->dependentBuild();
         // Create app
-        application.addSignal(SIGINT, window, MID_QUIT);
+        application.addSignal(SIGINT, window, MID_HOTKEY_CTRL_Q_CLOSE);
         application.create();
         // Load configuration given on command line
         if (argc > 1) {

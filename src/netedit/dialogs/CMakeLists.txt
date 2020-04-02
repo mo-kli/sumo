@@ -1,16 +1,20 @@
 set(netedit_dialogs_SRCS
    GNEVariableSpeedSignDialog.h
    GNEVariableSpeedSignDialog.cpp
-   GNEDialog_About.h
-   GNEDialog_About.cpp
-   GNEDialog_AllowDisallow.h
-   GNEDialog_AllowDisallow.cpp
-   GNEGenericParameterDialog.h
-   GNEGenericParameterDialog.cpp
-   GNEDialog_FixAdditionalPositions.h
-   GNEDialog_FixAdditionalPositions.cpp
+   GNEAbout.h
+   GNEAbout.cpp
+   GNEAllowDisallow.h
+   GNEAllowDisallow.cpp
+   GNEParametersDialog.h
+   GNEParametersDialog.cpp
+   GNEFixAdditionalElements.h
+   GNEFixAdditionalElements.cpp
+   GNEFixDemandElements.h
+   GNEFixDemandElements.cpp
    GNEAdditionalDialog.h
    GNEAdditionalDialog.cpp
+   GNEDemandElementDialog.h
+   GNEDemandElementDialog.cpp
    GNERerouterDialog.h
    GNERerouterDialog.cpp
    GNERerouterIntervalDialog.h
@@ -19,10 +23,10 @@ set(netedit_dialogs_SRCS
    GNECalibratorDialog.cpp
    GNECalibratorFlowDialog.h
    GNECalibratorFlowDialog.cpp
-   GNECalibratorRouteDialog.h
-   GNECalibratorRouteDialog.cpp
-   GNECalibratorVehicleTypeDialog.h
-   GNECalibratorVehicleTypeDialog.cpp
+   GNERouteDialog.h
+   GNERouteDialog.cpp
+   GNEVehicleTypeDialog.h
+   GNEVehicleTypeDialog.cpp
    GNEDialogACChooser.h
    GNEDialogACChooser.cpp
    )

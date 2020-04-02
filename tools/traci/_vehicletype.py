@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 # Eclipse SUMO, Simulation of Urban MObility; see https://eclipse.org/sumo
-# Copyright (C) 2008-2018 German Aerospace Center (DLR) and others.
-# This program and the accompanying materials
-# are made available under the terms of the Eclipse Public License v2.0
-# which accompanies this distribution, and is available at
-# http://www.eclipse.org/legal/epl-v20.html
-# SPDX-License-Identifier: EPL-2.0
+# Copyright (C) 2008-2020 German Aerospace Center (DLR) and others.
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# https://www.eclipse.org/legal/epl-2.0/
+# This Source Code may also be made available under the following Secondary
+# Licenses when the conditions for such availability set forth in the Eclipse
+# Public License 2.0 are satisfied: GNU General Public License, version 2
+# or later which is available at
+# https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 # @file    _vehicletype.py
 # @author  Michael Behrisch
 # @author  Lena Kalleske
 # @date    2008-10-09
-# @version $Id$
 
 from __future__ import absolute_import
 from .domain import Domain
@@ -40,6 +43,7 @@ _RETURN_VALUE_FUNC = {tc.VAR_LENGTH: Storage.readDouble,
                       tc.VAR_MAXSPEED_LAT: Storage.readDouble,
                       tc.VAR_MINGAP_LAT: Storage.readDouble,
                       tc.VAR_LATALIGNMENT: Storage.readString,
+                      tc.VAR_PERSON_CAPACITY: Storage.readInt,
                       tc.VAR_COLOR: lambda result: result.read("!BBBB")}
 
 
@@ -197,6 +201,13 @@ class VehicleTypeDomain(Domain):
         Returns The desired lateral gap of this type at 50km/h in m
         """
         return self._getUniversal(tc.VAR_MINGAP_LAT, vehID)
+
+    def getPersonCapacity(self, typeID):
+        """getPersonCapacity(string) -> int
+
+        Returns the person capacity of this type
+        """
+        return self._getUniversal(tc.VAR_PERSON_CAPACITY, typeID)
 
     def setLength(self, typeID, length):
         """setLength(string, double) -> None
@@ -386,6 +397,3 @@ class VehicleTypeDomain(Domain):
         """
         self._connection._sendStringCmd(
             tc.CMD_SET_VEHICLETYPE_VARIABLE, tc.COPY, origTypeID, newTypeID)
-
-
-VehicleTypeDomain()

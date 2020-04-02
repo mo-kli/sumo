@@ -1,21 +1,18 @@
 add_subdirectory(actions)
 add_subdirectory(cfmodels)
 add_subdirectory(devices)
+add_subdirectory(engine)
 add_subdirectory(lcmodels)
 add_subdirectory(logging)
 add_subdirectory(output)
-add_subdirectory(pedestrians)
 add_subdirectory(traffic_lights)
+add_subdirectory(transportables)
 add_subdirectory(trigger)
 
 set(microsim_STAT_SRCS
    MSBitSetLogic.h
    MSBaseVehicle.cpp
    MSBaseVehicle.h
-   MSCModel_NonInteracting.h
-   MSCModel_NonInteracting.cpp
-   MSContainer.cpp
-   MSContainer.h
    MSEdge.cpp
    MSEdge.h
    MSEdgeControl.cpp
@@ -24,6 +21,8 @@ set(microsim_STAT_SRCS
    MSEdgeWeightsStorage.h
    MSEventControl.cpp
    MSEventControl.h
+   MSDynamicShapeUpdater.cpp
+   MSDynamicShapeUpdater.h
    MSFrame.cpp
    MSFrame.h
    MSGlobals.cpp
@@ -82,10 +81,6 @@ set(microsim_STAT_SRCS
    MSStateHandler.cpp
    MSDriverState.h
    MSDriverState.cpp
-   MSTransportable.h
-   MSTransportable.cpp
-   MSTransportableControl.h
-   MSTransportableControl.cpp
 )
 
 add_library(microsim STATIC ${microsim_STAT_SRCS})
