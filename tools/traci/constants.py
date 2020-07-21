@@ -1188,7 +1188,7 @@ VAR_TRACK_VEHICLE = 0xa6
 VAR_HAS_VIEW = 0xa7
 
 # duration of a lane change
-TRACI_CONST int VAR_LC_DURATION = 0xf1;
+VAR_LC_DURATION = 0xf1;
 
 # @name currently wanted lane-change action
 # @{
